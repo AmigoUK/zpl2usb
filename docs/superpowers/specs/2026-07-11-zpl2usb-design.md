@@ -123,8 +123,22 @@ A deliberate subset — full ZPL is too large, and the mode is offline:
 - **Unsupported commands** → skipped and logged (best-effort rendering; the job is
   not aborted).
 
-Known and accepted limitation: more exotic ZPL commands may not render perfectly.
-The **raw** path (for printers with native ZPL) is always fully faithful.
+Known and accepted limitations of render mode (raw mode has none — it is byte-exact):
+- `^A`/`^CF` height is honoured but glyphs scale isotropically (width field ignored);
+- `^FR` reverse only shows over an already-black region (no field-level compositing);
+- `^BQ` follows the ZPL `<ec>,<data>` convention, so a payload beginning `H,` may be stripped;
+- a single label over ~8 MB (heavy `^GF`) is dropped with a logged error — use raw.
+
+Raw mode forwards the byte stream verbatim, including `~` control commands and
+inter-label bytes; the **raw** path is always fully faithful.
+
+### Delivery (idiotproof install)
+
+End users do not build. `.github/workflows/release.yml` builds a single self-contained
+executable per OS on a `v*` tag and attaches them to a GitHub Release: `zpl2usb-windows.exe`
+(double-click), `zpl2usb-macos.zip` (unzip → `zpl2usb.app`, `LSUIElement` background app),
+`zpl2usb-linux` (`chmod +x` → run). No Python, no dependencies. Local builds use
+`python packaging/build.py` (PyInstaller one-file, windowless).
 
 ## 7. Listening address (bypass)
 

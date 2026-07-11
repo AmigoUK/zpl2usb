@@ -5,6 +5,8 @@
 #
 # Wynik: dist/zpl2usb (Linux/macOS) lub dist/zpl2usb.exe (Windows).
 
+import sys
+
 from PyInstaller.utils.hooks import collect_all
 
 datas = []
@@ -48,3 +50,13 @@ exe = EXE(
     console=False,          # aplikacja GUI — bez okna konsoli
     disable_windowed_traceback=False,
 )
+
+# Na macOS pakujemy dodatkowo w .app (klikalne w Finderze, przyjazne Gatekeeperowi).
+if sys.platform == "darwin":
+    app = BUNDLE(
+        exe,
+        name="zpl2usb.app",
+        icon=None,
+        bundle_identifier="com.zpl2usb",
+        info_plist={"LSUIElement": True},  # aplikacja w tle (tray), bez ikony w Docku
+    )

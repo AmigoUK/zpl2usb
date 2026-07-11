@@ -33,6 +33,24 @@ You pick which of the computer's own IP addresses to listen on, so in your WMS y
 configure printing to that exact address (e.g. `192.168.1.50:9100`) rather than a
 wildcard.
 
+## Install & run (end users) — no Python needed
+
+1. Open the [**Releases**](https://github.com/AmigoUK/zpl2usb/releases) page.
+2. Download the file for your system:
+   - **Windows** → `zpl2usb-windows.exe` — double-click it.
+   - **macOS** → `zpl2usb-macos.zip` — unzip, then open `zpl2usb.app`.
+   - **Linux** → `zpl2usb-linux` — `chmod +x zpl2usb-linux`, then run it.
+3. A tray icon appears. Click it → **Ustawienia…** (Settings) to choose the listening
+   address, the target printer and the mode. That's it — it also starts with your system
+   by default.
+
+No installer, no Python, no dependencies — it's a single self-contained file.
+(Windows SmartScreen / macOS Gatekeeper may warn about an unsigned app the first time:
+"More info → Run anyway" / right-click → "Open".)
+
+Releases are built automatically for all three systems by
+[`.github/workflows/release.yml`](.github/workflows/release.yml) when a `v*` tag is pushed.
+
 ## Running from source
 
 ```bash
@@ -110,6 +128,23 @@ The renderer is local/offline and handles the most common commands:
 Unsupported commands are **skipped** and logged — the rest of the label still
 renders. For printers that speak ZPL natively, use **raw** mode (full fidelity, no
 renderer limitations).
+
+### Known limitations of render mode
+
+These are inherent to the offline renderer. **raw** mode has none of them — for a real
+Zebra, use raw and everything is byte-exact.
+
+- **Font width is not applied independently** — `^A`/`^CF` height is honoured but the
+  glyphs scale isotropically (the width field is ignored).
+- **`^FR` reverse** only shows where it overlaps an already-black region (there is no
+  full field-level compositing).
+- **`^BQ` QR data** follows the ZPL `<error-correction>,<data>` convention, so a payload
+  that literally begins e.g. `H,` may have that prefix stripped.
+- **Very large single labels** (heavy `^GF` graphics over ~8 MB in one `^XA…^XZ`) are
+  dropped with a logged error — send them in raw mode instead.
+
+Raw mode forwards the stream verbatim, including `~` control commands (`~SD`, `~JA`, …)
+and any bytes between labels — nothing is reframed or dropped.
 
 ## Previewing the render (without a printer)
 
