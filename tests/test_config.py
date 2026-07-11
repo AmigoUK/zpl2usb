@@ -54,6 +54,28 @@ def test_load_corrupt_raises(tmp_path):
         load(p)
 
 
+def test_default_listen_host():
+    assert Mapping().listen_host == "0.0.0.0"
+
+
+def test_listen_host_valid_ip():
+    m = Mapping(listen_host="192.168.1.50")
+    m.validate()
+    assert m.listen_host == "192.168.1.50"
+
+
+def test_listen_host_invalid_ip():
+    with pytest.raises(ConfigError, match="IPv4"):
+        Mapping(listen_host="not.an.ip").validate()
+
+
+def test_listen_host_roundtrip(tmp_path):
+    p = tmp_path / "config.json"
+    cfg = Config(mappings=[Mapping(listen_host="10.0.0.12", target_printer="X")])
+    save(cfg, p)
+    assert load(p).mappings[0].listen_host == "10.0.0.12"
+
+
 def test_invalid_port():
     with pytest.raises(ConfigError):
         Mapping(listen_port=70000).validate()

@@ -8,6 +8,7 @@ Zapis/odczyt jako JSON w katalogu konfiguracji użytkownika (per system).
 
 from __future__ import annotations
 
+import ipaddress
 import json
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -21,6 +22,7 @@ MODES = ("raw", "render")
 DPIS = (203, 300, 600)
 
 DEFAULT_PORT = 9100
+DEFAULT_HOST = "0.0.0.0"
 DEFAULT_MODE = "raw"
 DEFAULT_DPI = 203
 DEFAULT_LABEL_MM = (100.0, 40.0)
@@ -35,6 +37,9 @@ class Mapping:
     """Pojedyncze mapowanie: nasłuch na porcie -> drukarka systemowa."""
 
     listen_port: int = DEFAULT_PORT
+    # Adres IP tego komputera, na którym nasłuchuje wirtualna drukarka.
+    # "0.0.0.0" = wszystkie interfejsy; zwykle konkretny adres LAN (np. 192.168.1.50).
+    listen_host: str = DEFAULT_HOST
     target_printer: str = ""
     mode: str = DEFAULT_MODE
     dpi: int = DEFAULT_DPI
@@ -45,6 +50,10 @@ class Mapping:
     def validate(self) -> None:
         if not (1 <= self.listen_port <= 65535):
             raise ConfigError(f"Port poza zakresem 1-65535: {self.listen_port}")
+        try:
+            ipaddress.IPv4Address(self.listen_host)
+        except ipaddress.AddressValueError as exc:
+            raise ConfigError(f"Nieprawidłowy adres IPv4: {self.listen_host!r}") from exc
         if self.mode not in MODES:
             raise ConfigError(f"Nieznany tryb: {self.mode!r} (dozwolone: {MODES})")
         if self.dpi not in DPIS:
@@ -58,6 +67,7 @@ class Mapping:
         label = data.get("default_label_mm", DEFAULT_LABEL_MM)
         return cls(
             listen_port=int(data.get("listen_port", DEFAULT_PORT)),
+            listen_host=str(data.get("listen_host", DEFAULT_HOST)),
             target_printer=str(data.get("target_printer", "")),
             mode=str(data.get("mode", DEFAULT_MODE)),
             dpi=int(data.get("dpi", DEFAULT_DPI)),
