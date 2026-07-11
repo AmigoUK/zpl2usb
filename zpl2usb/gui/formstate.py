@@ -52,6 +52,13 @@ def form_to_mapping(form: dict) -> Mapping:
     return m
 
 
+def mapping_label(m: Mapping) -> str:
+    """Krótki opis mapowania do listy w GUI."""
+    printer = m.target_printer or "(brak drukarki)"
+    flag = "" if m.enabled else " [wył.]"
+    return f"{m.listen_host}:{m.listen_port} → {printer} ({m.mode}){flag}"
+
+
 def wms_hint(host: str, port: str) -> str:
     """Podpowiedź dla użytkownika: jak skonfigurować druk w systemie WMS."""
     if host == "0.0.0.0":

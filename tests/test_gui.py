@@ -4,7 +4,12 @@ import pytest
 from PIL import Image
 
 from zpl2usb.config import Mapping
-from zpl2usb.gui.formstate import form_to_mapping, mapping_to_form, wms_hint
+from zpl2usb.gui.formstate import (
+    form_to_mapping,
+    mapping_label,
+    mapping_to_form,
+    wms_hint,
+)
 from zpl2usb.gui.icon import make_icon
 
 
@@ -46,6 +51,20 @@ def test_wms_hint_all_interfaces():
 
 def test_wms_hint_empty_host():
     assert wms_hint("", "9100") == ""
+
+
+def test_mapping_label():
+    m = Mapping(listen_host="192.168.1.50", listen_port=9100,
+                target_printer="Zebra", mode="raw")
+    assert mapping_label(m) == "192.168.1.50:9100 → Zebra (raw)"
+
+
+def test_mapping_label_no_printer_and_disabled():
+    m = Mapping(listen_host="0.0.0.0", listen_port=9101, target_printer="",
+                mode="render", enabled=False)
+    label = mapping_label(m)
+    assert "(brak drukarki)" in label
+    assert "[wył.]" in label
 
 
 def test_form_default_label_formatting():
