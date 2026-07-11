@@ -93,10 +93,20 @@ class Config:
     def validate(self) -> None:
         if not self.mappings:
             raise ConfigError("Konfiguracja musi mieć przynajmniej jedno mapowanie.")
-        # Unikalne pary (adres, port) — dwa nasłuchy nie mogą kolidować.
-        keys = [(m.listen_host, m.listen_port) for m in self.mappings]
-        if len(keys) != len(set(keys)):
-            raise ConfigError(f"Adres:port nasłuchu muszą być unikalne: {keys}")
+        # Nasłuchy nie mogą kolidować. Ten sam port jest dozwolony na różnych
+        # konkretnych adresach, ale 0.0.0.0 zajmuje port na wszystkich interfejsach,
+        # więc koliduje z każdym innym adresem na tym samym porcie.
+        by_port: dict[int, list[str]] = {}
+        for m in self.mappings:
+            by_port.setdefault(m.listen_port, []).append(m.listen_host)
+        for port, hosts in by_port.items():
+            if len(hosts) != len(set(hosts)):
+                raise ConfigError(f"Adres:port nasłuchu muszą być unikalne (port {port}).")
+            if DEFAULT_HOST in hosts and len(hosts) > 1:
+                raise ConfigError(
+                    f"Port {port}: {DEFAULT_HOST} (wszystkie interfejsy) koliduje z "
+                    f"innym adresem na tym samym porcie."
+                )
         for m in self.mappings:
             m.validate()
 
@@ -130,8 +140,14 @@ def load(path: Path | None = None) -> Config:
         data = json.loads(p.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError) as exc:
         raise ConfigError(f"Nie można odczytać konfiguracji {p}: {exc}") from exc
-    cfg = Config.from_dict(data)
-    cfg.validate()
+    try:
+        cfg = Config.from_dict(data)
+        cfg.validate()
+    except ConfigError:
+        raise
+    except (ValueError, TypeError, KeyError) as exc:
+        # np. "listen_port": "abc" albo skalarny default_label_mm — zgłoś łagodnie.
+        raise ConfigError(f"Nieprawidłowa konfiguracja {p}: {exc}") from exc
     return cfg
 
 

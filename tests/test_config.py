@@ -110,6 +110,31 @@ def test_same_port_different_host_allowed():
     cfg.validate()  # nie rzuca — różne adresy
 
 
+def test_wildcard_conflicts_with_specific_ip_same_port():
+    cfg = Config(mappings=[
+        Mapping(listen_host="0.0.0.0", listen_port=9100, target_printer="A"),
+        Mapping(listen_host="192.168.1.10", listen_port=9100, target_printer="B"),
+    ])
+    with pytest.raises(ConfigError, match="0.0.0.0"):
+        cfg.validate()
+
+
+def test_load_malformed_port_raises_config_error(tmp_path):
+    p = tmp_path / "config.json"
+    p.write_text(json.dumps({"mappings": [{"listen_port": "abc", "target_printer": "X"}]}),
+                 encoding="utf-8")
+    with pytest.raises(ConfigError):
+        load(p)
+
+
+def test_load_scalar_label_raises_config_error(tmp_path):
+    p = tmp_path / "config.json"
+    p.write_text(json.dumps({"mappings": [{"default_label_mm": 100, "target_printer": "X"}]}),
+                 encoding="utf-8")
+    with pytest.raises(ConfigError):
+        load(p)
+
+
 def test_autostart_default_true():
     assert Config().autostart is True
 
