@@ -33,7 +33,9 @@ class Tray:
         self.icon = pystray.Icon(
             "zpl2usb",
             icon=make_icon(running=app.is_running()),
-            title="zpl2usb — wirtualna drukarka ZPL",
+            # Tytuł tylko ASCII — backend Xorg pystray koduje go jako latin-1
+            # i znaki jak „—" wywalają ikonę w zasobniku na Linux.
+            title="zpl2usb - wirtualna drukarka ZPL",
             menu=menu,
         )
 

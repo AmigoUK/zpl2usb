@@ -210,3 +210,9 @@ def test_tray_update_icon_changes_image(monkeypatch):
     app._running = True
     tray._update_icon()
     assert tray.icon.icon is not before
+
+
+def test_tray_title_is_latin1_safe(monkeypatch):
+    # Backend Xorg pystray koduje tytuł jako latin-1 — musi być bez znaków spoza.
+    tray, _, _ = _make_tray(monkeypatch)
+    tray.icon.title.encode("latin-1")  # nie może rzucić UnicodeEncodeError
