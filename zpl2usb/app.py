@@ -6,10 +6,12 @@ i udostępnia log zdarzeń dla GUI.
 
 from __future__ import annotations
 
+import sys
 import threading
 from collections import deque
 from typing import Callable
 
+from . import autostart as autostart_mod
 from . import config as config_mod
 from .config import Config
 from .printers import PrinterBackend, get_backend
@@ -92,3 +94,33 @@ class App:
 
     def reload_backend(self) -> None:
         self.router.backend = self.backend
+
+    # --- autostart ----------------------------------------------------------
+    def set_autostart(self, enabled: bool) -> None:
+        """Ustaw autostart (zapisuje config i stosuje w systemie)."""
+        self.config.autostart = enabled
+        try:
+            config_mod.save(self.config)
+        except Exception as exc:
+            self._on_event(ServerEvent("error", f"Zapis konfiguracji: {exc}", 0))
+        try:
+            autostart_mod.set_autostart(enabled)
+        except Exception as exc:
+            self._on_event(ServerEvent("error", f"Autostart: {exc}", 0))
+
+    def sync_autostart(self) -> None:
+        """Zsynchronizuj autostart systemu z konfiguracją.
+
+        Automatycznie działa tylko dla zbudowanej binarki (frozen), żeby nie
+        modyfikować systemu deweloperskiego przy uruchomieniu ze źródeł.
+        """
+        if not getattr(sys, "frozen", False):
+            return
+        try:
+            backend = autostart_mod.get_autostart()
+            if self.config.autostart and not backend.is_enabled():
+                backend.enable()
+            elif not self.config.autostart and backend.is_enabled():
+                backend.disable()
+        except Exception as exc:
+            self._on_event(ServerEvent("warning", f"Autostart: {exc}", 0))

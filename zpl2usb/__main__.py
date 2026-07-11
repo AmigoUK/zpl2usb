@@ -15,7 +15,10 @@ def main() -> int:
 
     app = App()
 
-    # Autostart, jeśli mapowanie ma wskazaną drukarkę.
+    # Zsynchronizuj autostart systemu z konfiguracją (tylko zbudowana binarka).
+    app.sync_autostart()
+
+    # Uruchom serwery, jeśli mapowanie ma wskazaną drukarkę.
     if any(m.enabled and m.target_printer for m in app.config.mappings):
         app.start()
 
