@@ -129,3 +129,84 @@ def test_tray_module_imports_without_pystray():
     # Import modułu nie może wymagać pystray (import jest leniwy w __init__).
     mod = importlib.import_module("zpl2usb.gui.tray")
     assert hasattr(mod, "Tray")
+
+
+# --- logika tray z podstawionym pystray (bez prawdziwego zasobnika) ---------
+class _FakePystray:
+    SEPARATOR = object()
+
+    class Menu:
+        SEPARATOR = object()
+
+        def __init__(self, *items):
+            self.items = items
+
+    class MenuItem:
+        def __init__(self, text, action, default=False, checked=None):
+            self.text, self.action, self.checked = text, action, checked
+
+    class Icon:
+        def __init__(self, name, icon=None, title=None, menu=None):
+            self.name, self.icon, self.title, self.menu = name, icon, title, menu
+            self.running = False
+
+        def run_detached(self):
+            self.running = True
+
+        def stop(self):
+            self.running = False
+
+
+class _StubApp:
+    def __init__(self):
+        self._running = False
+
+    def is_running(self):
+        return self._running
+
+    def start(self):
+        self._running = True
+        return []
+
+    def stop(self):
+        self._running = False
+
+
+def _make_tray(monkeypatch):
+    monkeypatch.setitem(__import__("sys").modules, "pystray", _FakePystray)
+    from zpl2usb.gui.tray import Tray
+
+    events = {"open": 0, "quit": 0}
+    app = _StubApp()
+    tray = Tray(
+        app,
+        on_open=lambda: events.__setitem__("open", events["open"] + 1),
+        on_quit=lambda: events.__setitem__("quit", events["quit"] + 1),
+    )
+    return tray, app, events
+
+
+def test_tray_start_stop_callbacks(monkeypatch):
+    tray, app, _ = _make_tray(monkeypatch)
+    assert not app.is_running()
+    tray._start()
+    assert app.is_running()
+    tray._stop()
+    assert not app.is_running()
+
+
+def test_tray_open_and_quit_callbacks(monkeypatch):
+    tray, app, events = _make_tray(monkeypatch)
+    tray._open()
+    assert events["open"] == 1
+    tray._quit()
+    assert events["quit"] == 1
+    assert tray.icon.running is False  # _quit zatrzymuje ikonę
+
+
+def test_tray_update_icon_changes_image(monkeypatch):
+    tray, app, _ = _make_tray(monkeypatch)
+    before = tray.icon.icon
+    app._running = True
+    tray._update_icon()
+    assert tray.icon.icon is not before

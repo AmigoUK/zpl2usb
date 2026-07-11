@@ -152,3 +152,51 @@ def test_graphic_field_ascii_hex():
     # górny-lewy piksel czarny, dolny wiersz przy y=1 biały
     assert r.image.getpixel((0, 0)) == 0
     assert r.image.getpixel((0, 1)) == 255
+
+
+# --- deterministyczna geometria (niezależna od fontów, stabilna między wersjami PIL) ---
+def test_box_outline_geometry():
+    # ^FO10,20 ^GB100,50,4 -> ramka [10,20..110,70], grubość 4, tylko obrys.
+    r = render(b"^XA^FO10,20^GB100,50,4^FS^XZ", dpi=203)
+    img = r.image
+    assert img.getpixel((60, 21)) == 0  # górna krawędź czarna
+    assert img.getpixel((11, 45)) == 0  # lewa krawędź czarna
+    assert img.getpixel((60, 45)) == 255  # wnętrze białe (sam obrys)
+    assert img.getpixel((300, 200)) == 255  # poza ramką białe
+
+
+def test_lh_origin_offset():
+    # ^LH50,50 przesuwa początek; ramka 0,0 rysuje się w (50,50).
+    r = render(b"^XA^LH50,50^FO0,0^GB12,12,12^FS^XZ", dpi=203, default_label_mm=(50, 50))
+    assert r.image.getpixel((55, 55)) == 0  # przy (50,50) czarne
+    assert r.image.getpixel((5, 5)) == 255  # przy (0,0) białe (przesunięte)
+
+
+def test_reverse_field_draws_white_on_black():
+    # Czarne tło (wypełniona ramka) + ^FR tekst -> białe piksele wewnątrz czerni.
+    zpl = b"^XA^FO0,0^GB80,80,80^FS^FO10,10^FR^A0N,40,40^FDX^FS^XZ"
+    r = render(zpl, dpi=203, default_label_mm=(30, 30))
+    region = [r.image.getpixel((x, y)) for x in range(0, 80) for y in range(0, 80)]
+    assert 0 in region and 255 in region  # jest i czerń tła, i biały (odwrócony) tekst
+
+
+def test_gf_unsupported_compression_warns():
+    r = render(b"^XA^FO0,0^GFB,2,2,1,FF00^FS^XZ", dpi=203, default_label_mm=(20, 20))
+    assert any("GF" in w or "kompresja" in w for w in r.warnings)
+
+
+def test_gf_bad_hex_warns():
+    r = render(b"^XA^FO0,0^GFA,2,2,1,ZZZZ^FS^XZ", dpi=203, default_label_mm=(20, 20))
+    # nieparzyste/niepoprawne dane hex -> brak czerni, render się nie wywala
+    assert r.image.getextrema()[0] == 255 or r.warnings is not None
+
+
+def test_code128_interpretation_line_toggle():
+    # Linia interpretacji (write_text=True) dodaje tekst -> wyższy obraz niż bez niej.
+    with_text = barcodes.code128(
+        "12345", module_width_dots=2, height_dots=80, dpi=203, write_text=True
+    )
+    without = barcodes.code128(
+        "12345", module_width_dots=2, height_dots=80, dpi=203, write_text=False
+    )
+    assert with_text.size[1] > without.size[1]

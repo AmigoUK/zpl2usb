@@ -1,5 +1,11 @@
 from zpl2usb import netutil
-from zpl2usb.netutil import _is_usable, list_local_ipv4, order_addresses
+from zpl2usb.netutil import _is_usable, default_route_ip, list_local_ipv4, order_addresses
+
+
+def test_default_route_ip_returns_usable_or_none():
+    ip = default_route_ip()
+    # W izolowanej sieci może być None; inaczej musi być użytecznym IPv4.
+    assert ip is None or _is_usable(ip)
 
 
 def test_is_usable_filters():
