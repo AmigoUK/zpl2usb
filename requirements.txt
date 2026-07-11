@@ -3,3 +3,4 @@ python-barcode>=0.15
 qrcode>=7.4
 platformdirs>=4.0
 pystray>=0.19
+psutil>=5.9
