@@ -1,82 +1,86 @@
-# zpl2usb — Wirtualna sieciowa drukarka ZPL (spec projektowy)
+# zpl2usb — Virtual networked ZPL printer (design specification)
 
-- **Data:** 2026-07-11
-- **Status:** Zaakceptowany do planowania implementacji
+- **Date:** 2026-07-11
+- **Status:** Approved; implemented
 
-## 1. Cel i problem
+## 1. Purpose and problem
 
-Systemy magazynowe/ERP potrafią drukować etykiety tylko na sieciową drukarkę ZPL
-(Zebra, port RAW/9100). W praktyce drukarka podłączona do komputera bywa inna:
-zwykła drukarka biurowa albo przemysłowa etykieciarka innego producenta
-(np. **Toshiba B-EX**, natywnie TPCL), która nie rozumie ZPL.
+Warehouse/ERP systems can often only print labels to a networked ZPL printer
+(Zebra, RAW port 9100). In practice the printer attached to the computer is
+frequently a different device: an ordinary office printer, or an industrial label
+printer from another vendor (e.g. **Toshiba B-EX**, which speaks TPCL natively) that
+does not understand ZPL.
 
-**zpl2usb** to prosta, wieloplatformowa (Windows/Linux/macOS) aplikacja w Pythonie,
-która emuluje sieciową drukarkę ZPL Zebra na porcie `9100`. Przyjmuje strumień ZPL
-po TCP i kieruje go na dowolną drukarkę zainstalowaną w systemie — surowo (raw)
-lub renderując lokalnie ZPL do bitmapy dla drukarek bez natywnego ZPL.
-Aplikacja ma ikonę w zasobniku systemowym i proste okno ustawień, dystrybuowana
-jako samodzielna binarka (bez instalacji Pythona przez użytkownika).
+**zpl2usb** is a simple, cross-platform (Windows/Linux/macOS) Python application that
+emulates a networked Zebra ZPL printer on port `9100`. It receives the ZPL stream
+over TCP and forwards it to any printer installed on the system — either raw, or by
+rendering the ZPL locally to a bitmap for printers without native ZPL support.
+The application has a system-tray icon and a simple settings window, and is
+distributed as a standalone binary (users do not install Python).
 
-## 2. Decyzje projektowe (ustalenia)
+## 2. Design decisions
 
-| Zagadnienie | Decyzja |
+| Topic | Decision |
 |---|---|
-| Drukarka docelowa | Dowolna — tryb wybierany przez użytkownika (raw ZPL **lub** render) |
-| Sposób druku | Wyłącznie przez **drukarki zainstalowane w systemie** (sterownik/kolejka) |
-| Renderowanie ZPL | **Tylko lokalnie/offline** (bez usług online typu Labelary) |
-| Liczba wirtualnych drukarek | Start od **jednej**; architektura zaprojektowana pod wiele (lista mapowań) |
-| Interfejs | **Ikona w zasobniku** (pystray) + okno ustawień/log (Tkinter) |
-| Dystrybucja | **Samodzielna binarka** per system (PyInstaller) |
-| DPI | Ustawiane **per drukarka** (203/300/600), domyślnie 203 |
-| Domyślny rozmiar etykiety | **100 × 40 mm** (gdy brak `^PW`/`^LL` w ZPL) |
+| Target printer | Any — the mode is chosen by the user (raw ZPL **or** render) |
+| Printing method | Only via **system-installed printers** (driver/queue) |
+| ZPL rendering | **Local/offline only** (no online services such as Labelary) |
+| Number of virtual printers | Start with **one**; architecture designed for many (list of mappings) |
+| Listening address | User selects one of **this computer's own IP addresses** (not a hardcoded wildcard) |
+| Interface | **System-tray icon** (pystray) + settings/log window (Tkinter) |
+| Distribution | **Standalone binary** per OS (PyInstaller) |
+| DPI | Configured **per printer** (203/300/600), default 203 |
+| Default label size | **100 × 40 mm** (when the ZPL omits `^PW`/`^LL`) |
 
-## 3. Architektura i przepływ danych
+## 3. Architecture and data flow
+
+The computer acts as a bypass between the network and the locally attached printer:
 
 ```
-System (WMS/ERP)  --ZPL po TCP-->  :9100 nasłuch  -->  podział na zadania (^XA…^XZ)
-                                                             |
-                                                        router (tryb?)
-                                              raw /                    \ render
-                                     backend druku            renderer ZPL->bitmapa (DPI)
-                                     (surowe bajty)                     |
-                                              \___ drukarka systemowa __/
-                                                    (Win/Mac/Linux)
+WMS/ERP system                     This computer (bypass)               Printer
+prints to 192.168.1.50:9100  ──▶   listens on 192.168.1.50:9100   ──▶   USB / system
+                                   splits stream into ^XA…^XZ jobs       (Zebra = raw,
+                                   → router: raw or render               Toshiba = render)
 ```
 
-1. System wysyła ZPL na `0.0.0.0:9100` (protokół RAW/JetDirect — czyste bajty,
-   bez handshake).
-2. Nasłuch zbiera bajty z połączenia i dzieli strumień na zadania `^XA`…`^XZ`.
-3. Router sprawdza konfigurację danego portu → tryb **raw** lub **render**.
-4. **raw** → bajty 1:1 do drukarki systemowej.
-   **render** → lokalny interpreter ZPL tworzy bitmapę w zadanym DPI →
-   druk obrazu przez sterownik systemowy.
-5. Wynik i błędy trafiają do logu i okna aplikacji.
+1. The system sends ZPL to `<computer-IP>:9100` (RAW/JetDirect protocol — plain
+   bytes, no handshake).
+2. The listener collects the bytes from the connection and splits the stream into
+   `^XA`…`^XZ` jobs.
+3. The router checks the configuration for that port → **raw** or **render** mode.
+4. **raw** → the bytes go 1:1 to the system printer.
+   **render** → the local ZPL interpreter produces a bitmap at the configured DPI →
+   the image is printed through the system driver.
+5. Results and errors are recorded in the log and the application window.
 
-## 4. Moduły (każdy o jednej odpowiedzialności)
+## 4. Modules (each with a single responsibility)
 
-- **`server.py`** — nasłuch TCP RAW dla mapowania (start/stop, wiele portów w przyszłości);
-  zbiera bajty z połączenia.
-- **`jobs.py`** — dzieli strumień na pojedyncze zadania ZPL (`^XA`…`^XZ`);
-  odporny na sklejone i pofragmentowane pakiety TCP.
-- **`router.py`** — decyzja raw vs render wg konfiguracji; wywołanie backendu druku.
-- **`printers.py`** — warstwa międzyplatformowa: `list_printers()`,
-  `print_raw(name, bytes)`, `print_image(name, image)`.
-  Windows → `win32print`; macOS/Linux → CUPS (`lp`/`lpr`).
-- **`renderer/`** — interpreter ZPL → obraz PIL:
-  - `parser` — tokenizacja poleceń
-  - `commands` — `^FO/^FT`, `^A` (tekst), `^GB` (ramki/linie), `^GF` (grafika)
+- **`server.py`** — RAW TCP listener for a mapping (start/stop, multiple ports in
+  future); binds to the configured `listen_host`; collects bytes from the connection.
+- **`jobs.py`** — splits the stream into individual ZPL jobs (`^XA`…`^XZ`); resilient
+  to concatenated and fragmented TCP packets.
+- **`router.py`** — decides raw vs render from the configuration; calls the print
+  backend.
+- **`printers.py`** — cross-platform layer: `list_printers()`, `print_raw(name, bytes)`,
+  `print_image(name, image)`. Windows → `win32print`; macOS/Linux → CUPS (`lp`/`lpr`).
+- **`netutil.py`** — detects the computer's local IPv4 addresses for the listening-
+  address selector (psutil, with a socket-based fallback).
+- **`renderer/`** — ZPL interpreter → PIL image:
+  - `parser` — command tokenisation
+  - `interpreter` — `^FO/^FT`, `^A` (text), `^GB` (boxes/lines), `^GF` (graphics)
   - `barcodes` — `^BC` (Code128), `^BQ` (QR), `^BY`
-  - `canvas` — płótno wg DPI i rozmiaru etykiety
-- **`config.py`** — wczytywanie/zapis JSON (`platformdirs`); dataklasy mapowań.
-- **`app.py`** — spina konfigurację → serwery → router; cykl życia aplikacji.
-- **`gui/`** — ikona w zasobniku (`pystray`) + okno ustawień i log (`Tkinter`).
+  - `units`/`fonts` — canvas sizing by DPI and label size, scalable font
+- **`config.py`** — load/save JSON (`platformdirs`); mapping dataclasses.
+- **`app.py`** — wires configuration → servers → router; application lifecycle.
+- **`gui/`** — system-tray icon (`pystray`) + settings and log window (`Tkinter`).
 
-Model konfiguracji (jedno mapowanie dziś, lista pod wiele):
+Configuration model (one mapping today, a list ready for many):
 
 ```json
 {
   "mappings": [
     {
+      "listen_host": "192.168.1.50",
       "listen_port": 9100,
       "target_printer": "Toshiba B-EX",
       "mode": "render",            // "raw" | "render"
@@ -87,58 +91,75 @@ Model konfiguracji (jedno mapowanie dziś, lista pod wiele):
 }
 ```
 
-## 5. Stos technologiczny
+## 5. Technology stack
 
 - **Python 3.11+**
-- **Pillow** — płótno i rasteryzacja
+- **Pillow** — canvas and rasterisation
 - **python-barcode** (Code128) + **qrcode** (QR)
-- **pystray** — ikona w zasobniku (Win/Mac/Linux)
-- **Tkinter** — okno ustawień (wbudowane, dobrze się pakuje)
-- **platformdirs** — ścieżki configu i logów per system
-- **pywin32** (Windows) / polecenia **CUPS** `lp`/`lpr` (macOS/Linux) — backend druku
-- **PyInstaller** — budowa samodzielnych binarek
+- **psutil** — reliable, cross-platform detection of local IP addresses
+- **pystray** — system-tray icon (Win/Mac/Linux)
+- **Tkinter** — settings window (built in, packages well)
+- **platformdirs** — per-system configuration and log paths
+- **pywin32** (Windows) / CUPS commands `lp`/`lpr` (macOS/Linux) — print backend
+- **PyInstaller** — building standalone binaries
 
-## 6. Zakres lokalnego renderera ZPL (MVP)
+## 6. Supported ZPL subset (render mode)
 
-Świadomy podzbiór — pełny ZPL jest zbyt obszerny, a tryb jest offline:
+A deliberate subset — full ZPL is too large, and the mode is offline:
 
-- Struktura: `^XA`, `^XZ`, `^FS`
-- Ustawienia: `^PW` (szerokość), `^LL` (długość), `^LH` (home), `^CI`; DPI z konfiguracji
-- Pozycjonowanie: `^FO`, `^FT`
-- Tekst: `^A` (fonty skalowalne → wbudowany font TrueType), `^FD`, `^FH`
-- Grafika: `^GB` (ramki/linie/prostokąty), `^GF` (grafika bitmapowa), `^FR`
-- Kody: `^BY`, `^BC` (Code128), `^BQ` (QR)
-- **Nieobsługiwane polecenia** → pomijane z wpisem do logu (render best-effort,
-  nie przerywa zadania).
+- structure: `^XA`, `^XZ`, `^FS`
+- settings: `^PW` (width), `^LL` (length), `^LH` (home), `^CF`, `^CI`; DPI from configuration
+- positioning: `^FO`, `^FT`
+- text: `^A` (scalable font → embedded TrueType font), `^FD`, `^FH`
+- graphics: `^GB` (boxes/lines/rectangles), `^GF` (ASCII-hex bitmap), `^FR`
+- barcodes: `^BY`, `^BC` (Code128), `^BQ` (QR)
+- **Unsupported commands** → skipped and logged (best-effort rendering; the job is
+  not aborted).
 
-Ograniczenie znane i zaakceptowane: bardziej egzotyczne polecenia ZPL mogą nie
-renderować się idealnie. Ścieżka **raw** (dla drukarek natywnie ZPL) jest zawsze
-w pełni wierna.
+Known and accepted limitation: more exotic ZPL commands may not render perfectly.
+The **raw** path (for printers with native ZPL) is always fully faithful.
 
-## 7. Obsługa błędów
+## 7. Listening address (bypass)
 
-Aplikacja nigdy się nie wywala; wszystko trafia do logu i okna:
+The listener binds to a user-selected `listen_host` — one of this computer's own
+IPv4 addresses — rather than a hardcoded `0.0.0.0`. This makes the bypass explicit:
+the WMS is configured to print to that exact address (e.g. `192.168.1.50:9100`).
 
-- Port zajęty przy starcie → czytelny komunikat w GUI, możliwość zmiany portu.
-- Brak wybranej / offline drukarki → zadanie oznaczone jako błędne w logu,
-  aplikacja działa dalej.
-- Klient rozłączył się w trakcie zadania (niepełne `^XA…^XZ`) → odrzucenie
-  fragmentu z ostrzeżeniem.
-- Nieobsługiwane polecenie ZPL (render) → pominięcie + log, reszta etykiety renderowana.
-- Błąd backendu druku → log z treścią błędu; zadanie nie blokuje kolejnych.
+- The settings window offers a drop-down of detected local IPv4 addresses (LAN
+  address first), plus `0.0.0.0` (all interfaces) as a fallback option, and a
+  "Refresh" button.
+- A hint shows the user exactly what to configure in the WMS: `IP:port`.
+- If the saved address is no longer available (e.g. a DHCP change), the server start
+  fails with a clear message asking the user to refresh and reselect.
 
-## 8. Testy
+## 8. Error handling
 
-- **Jednostkowe:** `jobs` (podział strumienia, sklejone/rozcięte pakiety TCP),
-  `config` (zapis/odczyt, migracja), `printers` (backend zamockowany per OS).
-- **Renderer:** testy „golden image" dla przykładowych etykiet (tekst, ramka,
-  Code128, QR) — porównanie wymiarów i skrótu obrazu.
-- **Integracyjne:** wysłanie przykładowego ZPL na lokalny socket → sprawdzenie,
-  że router trafia do zamockowanego backendu w obu trybach.
-- **Manualne:** prawdziwa Toshiba B-EX (render) + prawdziwa Zebra (raw).
+The application never crashes; everything goes to the log and the window:
 
-## 9. Poza zakresem (YAGNI na teraz)
+- Address/port unavailable or in use at start → clear message in the GUI, the user can
+  change the address or port.
+- No target printer selected / printer offline → the job is marked as failed in the
+  log, the application keeps running.
+- Client disconnected mid-job (incomplete `^XA…^XZ`) → the fragment is discarded with a
+  warning (a trailing newline after `^XZ` is not treated as an error).
+- Unsupported ZPL command (render) → skipped and logged, the rest of the label renders.
+- Print backend failure → logged with the error text; the job does not block others.
 
-- Konwersja ZPL → TPCL / inne języki drukarek (rozwiązywane przez render do bitmapy).
-- Wiele jednoczesnych wirtualnych drukarek w UI (architektura gotowa, UI później).
-- Zaawansowany podgląd etykiety w GUI, kolejkowanie z ponawianiem, autentykacja.
+## 9. Tests
+
+- **Unit:** `jobs` (stream splitting, concatenated/fragmented TCP packets),
+  `config` (save/load, validation), `printers` (backend mocked per OS),
+  `netutil` (address filtering/ordering, mocked).
+- **Renderer:** "golden image" tests for sample labels (text, box, Code128, QR) —
+  comparing dimensions and image content.
+- **Integration:** sending sample ZPL to a real local socket → verifying the router
+  reaches the mocked backend in both modes; binding to a specific `listen_host`.
+- **GUI:** pure form/hint logic tested directly; the Tkinter window smoke-tested under
+  a virtual display.
+- **Manual:** a real Toshiba B-EX (render) + a real Zebra (raw).
+
+## 10. Out of scope (YAGNI for now)
+
+- ZPL → TPCL / other printer-language conversion (solved by rendering to a bitmap).
+- Managing multiple virtual printers in the UI (the architecture is ready; UI later).
+- Advanced label preview in the GUI, queueing with retries, authentication.

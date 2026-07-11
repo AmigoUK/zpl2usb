@@ -1,98 +1,106 @@
 # zpl2usb
 
-**Wirtualna sieciowa drukarka ZPL (Zebra, port 9100)** mostkująca druk na dowolną
-drukarkę zainstalowaną w systemie — na Windows, Linux i macOS.
+**A virtual networked ZPL printer (Zebra, port 9100)** that bridges print jobs to
+any printer installed on your computer — on Windows, Linux and macOS.
 
-Systemy magazynowe/ERP potrafią drukować etykiety tylko na sieciową drukarkę ZPL
-(port RAW/9100). zpl2usb udaje taką drukarkę: nasłuchuje na `IP_komputera:9100`,
-przyjmuje strumień ZPL i kieruje go na wybraną drukarkę systemową:
+Warehouse and ERP systems often can only print labels to a networked ZPL printer
+(RAW port 9100). zpl2usb pretends to be one: the computer listens on
+`<its-own-IP>:9100`, receives the ZPL stream and forwards each label to a printer
+you select in the system, in one of two modes:
 
-- **raw** — surowe bajty ZPL 1:1 (dla drukarek natywnie ZPL, np. Zebra),
-- **render** — lokalne (offline) renderowanie ZPL do bitmapy i druk przez
-  sterownik systemowy (dla drukarek bez ZPL, np. Toshiba B-EX).
+- **raw** — the raw ZPL bytes, sent 1:1 (for printers that speak ZPL natively, e.g. Zebra),
+- **render** — local (offline) rendering of the ZPL to a bitmap, printed through the
+  system driver (for printers that do not understand ZPL, e.g. Toshiba B-EX).
 
-Aplikacja ma ikonę w zasobniku systemowym i proste okno ustawień.
+The application lives in the system tray and has a simple settings window.
 
-![Przykład wyrenderowanej etykiety](examples/sample_100x40.png)
+![Example of a rendered label](examples/sample_100x40.png)
 
-## Jak to działa
+## How it works
+
+The machine acts as a bypass between the network and the locally attached printer:
 
 ```
-System (WMS/ERP)  --ZPL po TCP-->  :9100 nasłuch  -->  podział na zadania (^XA…^XZ)
-                                                             |
-                                                        router (tryb?)
-                                              raw /                    \ render
-                                     druk surowy              renderer ZPL->bitmapa (DPI)
-                                              \___ drukarka systemowa __/
+WMS/ERP system                     This computer (bypass)               Printer
+prints to 192.168.1.50:9100  ──▶   listens on 192.168.1.50:9100   ──▶   USB / system
+                                   splits stream into ^XA…^XZ jobs       (Zebra = raw,
+                                   → mode raw or render                   Toshiba = render)
 ```
 
-## Uruchomienie ze źródeł
+You pick which of the computer's own IP addresses to listen on, so in your WMS you
+configure printing to that exact address (e.g. `192.168.1.50:9100`) rather than a
+wildcard.
+
+## Running from source
 
 ```bash
 python3 -m venv .venv
 . .venv/bin/activate           # Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
-python -m zpl2usb              # start aplikacji (tray + nasłuch)
+python -m zpl2usb              # start the app (tray + listener)
 ```
 
-- **Windows**: dodatkowo `pip install pywin32`.
-- **Linux**: wymagany CUPS (`lp`/`lpr`) oraz `python3-tk` dla GUI.
-- **macOS**: CUPS jest wbudowany; `tkinter` dostarcza instalator Pythona z python.org.
+- **Windows**: also run `pip install pywin32`.
+- **Linux**: requires CUPS (`lp`/`lpr`) and `python3-tk` for the GUI.
+- **macOS**: CUPS is built in; `tkinter` ships with the python.org installer.
 
-## Budowa samodzielnej binarki
+## Building a standalone binary
 
-Na **docelowym** systemie (PyInstaller nie robi cross-kompilacji):
+Build on the **target** operating system (PyInstaller does not cross-compile):
 
 ```bash
 pip install -r requirements.txt pyinstaller
 python packaging/build.py
-# wynik: dist/zpl2usb  (Windows: dist/zpl2usb.exe)
+# result: dist/zpl2usb  (Windows: dist/zpl2usb.exe)
 ```
 
-## Konfiguracja
+## Configuration
 
-Zapisywana jako JSON w katalogu konfiguracji użytkownika (przez `platformdirs`,
-per system). Pola mapowania:
+Stored as JSON in the per-user configuration directory (via `platformdirs`).
+Fields of a mapping:
 
-| Pole | Znaczenie | Domyślnie |
+| Field | Meaning | Default |
 |---|---|---|
-| `listen_port` | port nasłuchu RAW | `9100` |
-| `target_printer` | nazwa drukarki systemowej | — |
-| `mode` | `raw` lub `render` | `raw` |
+| `listen_host` | which of this computer's IPv4 addresses to listen on | `0.0.0.0` (all) |
+| `listen_port` | RAW listening port | `9100` |
+| `target_printer` | name of the system printer | — |
+| `mode` | `raw` or `render` | `raw` |
 | `dpi` | 203 / 300 / 600 | `203` |
-| `default_label_mm` | rozmiar etykiety, gdy brak `^PW`/`^LL` | `100 × 40` |
+| `default_label_mm` | label size when the ZPL omits `^PW`/`^LL` | `100 × 40` |
 
-Model konfiguracji to lista mapowań — dziś UI obsługuje jedno, architektura jest
-gotowa na wiele wirtualnych drukarek (różne porty → różne drukarki).
+The configuration model is a list of mappings — the current UI manages one, but the
+architecture is ready for several virtual printers (different addresses/ports →
+different printers).
 
-## Obsługiwany podzbiór ZPL (tryb render)
+## Supported ZPL subset (render mode)
 
-Renderer jest lokalny/offline i obsługuje najczęstsze polecenia:
+The renderer is local/offline and handles the most common commands:
 
-- struktura: `^XA` `^XZ` `^FS`
-- ustawienia: `^PW` `^LL` `^LH` `^CF` `^CI`
-- pozycja: `^FO` `^FT`
-- tekst: `^A` (font skalowalny), `^FD`
-- grafika: `^GB` (ramki/linie), `^GF` (bitmapa ASCII-hex), `^FR`
-- kody: `^BY`, `^BC` (Code128), `^BQ` (QR)
+- structure: `^XA` `^XZ` `^FS`
+- settings: `^PW` `^LL` `^LH` `^CF` `^CI`
+- positioning: `^FO` `^FT`
+- text: `^A` (scalable font), `^FD`
+- graphics: `^GB` (boxes/lines), `^GF` (ASCII-hex bitmap), `^FR`
+- barcodes: `^BY`, `^BC` (Code128), `^BQ` (QR)
 
-Nieobsługiwane polecenia są **pomijane** i trafiają do logu — reszta etykiety
-renderuje się dalej. Dla drukarek natywnie ZPL używaj trybu **raw** (pełna
-wierność, bez ograniczeń renderera).
+Unsupported commands are **skipped** and logged — the rest of the label still
+renders. For printers that speak ZPL natively, use **raw** mode (full fidelity, no
+renderer limitations).
 
-## Podgląd renderu (bez drukarki)
+## Previewing the render (without a printer)
 
 ```bash
-python tools/render_zpl.py examples/sample_100x40.zpl -o podglad.png --dpi 203 --size 100x40
+python tools/render_zpl.py examples/sample_100x40.zpl -o preview.png --dpi 203 --size 100x40
 ```
 
-## Testy
+## Tests
 
 ```bash
 pip install pytest
 pytest
 ```
 
-## Licencja
+## Licence
 
-MIT. Zobacz też spec: [`docs/superpowers/specs/2026-07-11-zpl2usb-design.md`](docs/superpowers/specs/2026-07-11-zpl2usb-design.md).
+MIT. See also the design specification:
+[`docs/superpowers/specs/2026-07-11-zpl2usb-design.md`](docs/superpowers/specs/2026-07-11-zpl2usb-design.md).
