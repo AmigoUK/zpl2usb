@@ -103,33 +103,13 @@ class RawPrintServer:
             t.start()
 
     def _handle_conn(self, conn: socket.socket, addr) -> None:
-        splitter = JobSplitter()
+        # settimeout wyznacza też okno bezczynności dla flush w trybie raw.
         conn.settimeout(1.0)
         try:
-            while not self._stop.is_set():
-                try:
-                    chunk = conn.recv(65536)
-                except socket.timeout:
-                    continue
-                except OSError:
-                    break
-                if not chunk:
-                    break  # klient zamknął połączenie
-                try:
-                    jobs = splitter.feed(chunk)
-                except BufferError as exc:
-                    self._emit("error", f"{addr[0]}: {exc}")
-                    splitter.reset()
-                    continue
-                for job in jobs:
-                    self._process(job)
-            # Ostrzeż tylko, gdy w buforze pozostało realnie rozpoczęte zadanie
-            # (zawiera ^XA). Sam biały znak/nowa linia po ^XZ to nie błąd.
-            pending = splitter.pending
-            if START in pending:
-                self._emit("warning",
-                           f"{addr[0]}: rozłączenie z niekompletnym zadaniem "
-                           f"({len(pending)} B odrzucone)")
+            if self.mapping.mode == "raw":
+                self._handle_raw(conn, addr)
+            else:
+                self._handle_render(conn, addr)
         finally:
             try:
                 conn.close()
@@ -137,6 +117,56 @@ class RawPrintServer:
                 pass
             self._conn_threads = [t for t in self._conn_threads
                                   if t is not threading.current_thread()]
+
+    def _handle_raw(self, conn: socket.socket, addr) -> None:
+        """Tryb raw: przekaż strumień bajtów 1:1 (zachowuje polecenia ~ i bajty
+        między etykietami). Flush całego bufora na rozłączeniu ORAZ po ~1 s
+        bezczynności, żeby działały zarówno połączenia jednorazowe, jak i trwałe.
+        """
+        buf = bytearray()
+        while not self._stop.is_set():
+            try:
+                chunk = conn.recv(65536)
+            except socket.timeout:
+                if buf:  # bezczynność — wypchnij zebrane bajty
+                    self._process(bytes(buf))
+                    buf.clear()
+                continue
+            except OSError:
+                break
+            if not chunk:
+                break  # klient zamknął połączenie
+            buf.extend(chunk)
+        if buf:
+            self._process(bytes(buf))
+
+    def _handle_render(self, conn: socket.socket, addr) -> None:
+        """Tryb render: dziel strumień na etykiety ^XA..^XZ i renderuj każdą."""
+        splitter = JobSplitter()
+        while not self._stop.is_set():
+            try:
+                chunk = conn.recv(65536)
+            except socket.timeout:
+                continue
+            except OSError:
+                break
+            if not chunk:
+                break  # klient zamknął połączenie
+            try:
+                jobs = splitter.feed(chunk)
+            except BufferError as exc:
+                self._emit("error", f"{addr[0]}: {exc}")
+                splitter.reset()
+                continue
+            for job in jobs:
+                self._process(job)
+        # Ostrzeż tylko, gdy w buforze pozostało realnie rozpoczęte zadanie
+        # (zawiera ^XA). Sam biały znak/nowa linia po ^XZ to nie błąd.
+        pending = splitter.pending
+        if START in pending:
+            self._emit("warning",
+                       f"{addr[0]}: rozłączenie z niekompletnym zadaniem "
+                       f"({len(pending)} B odrzucone)")
 
     def _process(self, job: bytes) -> None:
         result: RouteResult = self.router.handle_job(self.mapping, job)

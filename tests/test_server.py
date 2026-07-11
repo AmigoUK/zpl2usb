@@ -41,16 +41,51 @@ def test_server_routes_raw_job():
         srv.stop()
 
 
-def test_server_splits_two_jobs_in_one_send():
+def test_raw_mode_forwards_verbatim():
+    # Raw mode must pass the byte stream through 1:1, incl. ~ control commands
+    # and inter-job bytes (flushed once on close).
     be = FakeBackend()
     mapping = Mapping(listen_port=0, target_printer="Zebra", mode="raw")
     srv = RawPrintServer(mapping, Router(be))
     srv.start()
     try:
+        stream = b"~SD25^XA^FDa^XZ~JA^XA^FDb^XZ~HS"
+        _send(srv.port, stream)
+        assert _wait(lambda: be.raw_calls)
+        time.sleep(0.15)  # allow any trailing flush
+        joined = b"".join(d for _, d in be.raw_calls)
+        assert joined == stream  # nothing dropped, order preserved
+    finally:
+        srv.stop()
+
+
+def test_raw_mode_idle_flush():
+    # A persistent connection that pauses should flush after the idle timeout,
+    # without waiting for close.
+    be = FakeBackend()
+    mapping = Mapping(listen_port=0, target_printer="Zebra", mode="raw")
+    srv = RawPrintServer(mapping, Router(be))
+    srv.start()
+    s = socket.create_connection(("127.0.0.1", srv.port), timeout=2)
+    try:
+        s.sendall(b"~SD20^XA^FDx^XZ")
+        # do NOT close — expect idle flush (socket timeout ~1s)
+        assert _wait(lambda: be.raw_calls, timeout=4.0)
+        assert b"~SD20" in b"".join(d for _, d in be.raw_calls)
+    finally:
+        s.close()
+        srv.stop()
+
+
+def test_render_mode_splits_two_jobs_in_one_send():
+    # Job framing is a render-mode concern: each ^XA..^XZ renders separately.
+    be = FakeBackend()
+    mapping = Mapping(listen_port=0, target_printer="Zebra", mode="render")
+    srv = RawPrintServer(mapping, Router(be))
+    srv.start()
+    try:
         _send(srv.port, b"^XA^FDa^XZ^XA^FDb^XZ")
-        assert _wait(lambda: len(be.raw_calls) == 2)
-        assert be.raw_calls[0][1] == b"^XA^FDa^XZ"
-        assert be.raw_calls[1][1] == b"^XA^FDb^XZ"
+        assert _wait(lambda: len(be.image_calls) == 2)
     finally:
         srv.stop()
 
@@ -82,14 +117,15 @@ def test_server_error_event_when_no_printer():
 
 
 def test_trailing_newline_no_warning():
+    # Render mode: a newline after ^XZ is normal and must not warn.
     be = FakeBackend()
     events = []
-    mapping = Mapping(listen_port=0, target_printer="Zebra", mode="raw")
+    mapping = Mapping(listen_port=0, target_printer="Zebra", mode="render")
     srv = RawPrintServer(mapping, Router(be), on_event=events.append)
     srv.start()
     try:
         _send(srv.port, b"^XA^FDx^XZ\n")  # nowa linia po ^XZ jest normalna
-        assert _wait(lambda: len(be.raw_calls) == 1)
+        assert _wait(lambda: len(be.image_calls) == 1)
         time.sleep(0.1)  # daj czas na ewentualne ostrzeżenie po zamknięciu
         assert not any(e.level == "warning" for e in events), \
             [e.message for e in events if e.level == "warning"]
@@ -98,9 +134,10 @@ def test_trailing_newline_no_warning():
 
 
 def test_truncated_job_warns():
+    # Render mode: an unterminated ^XA (no ^XZ) at disconnect warns.
     be = FakeBackend()
     events = []
-    mapping = Mapping(listen_port=0, target_printer="Zebra", mode="raw")
+    mapping = Mapping(listen_port=0, target_printer="Zebra", mode="render")
     srv = RawPrintServer(mapping, Router(be), on_event=events.append)
     srv.start()
     try:
