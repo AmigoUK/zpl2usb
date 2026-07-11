@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "zpl2usb"
+version = "0.1.0"
+description = "Wirtualna sieciowa drukarka ZPL (Zebra 9100) mostkująca druk na dowolną drukarkę systemową"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "AmigoUK" }]
+dependencies = [
+    "Pillow>=10.0",
+    "python-barcode>=0.15",
+    "qrcode>=7.4",
+    "platformdirs>=4.0",
+    "pystray>=0.19",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0"]
+windows = ["pywin32>=306"]
+
+[project.scripts]
+zpl2usb = "zpl2usb.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["zpl2usb*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
