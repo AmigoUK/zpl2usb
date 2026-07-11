@@ -47,6 +47,7 @@ class RawPrintServer:
         self._thread: threading.Thread | None = None
         self._stop = threading.Event()
         self._conn_threads: list[threading.Thread] = []
+        self._conn_lock = threading.Lock()  # chroni _conn_threads między wątkami
         self.port: int = mapping.listen_port
 
     # --- cykl życia ---------------------------------------------------------
@@ -85,7 +86,9 @@ class RawPrintServer:
                 pass
         if self._thread is not None:
             self._thread.join(timeout=2)
-        for t in list(self._conn_threads):
+        with self._conn_lock:
+            threads = list(self._conn_threads)
+        for t in threads:
             t.join(timeout=1)
         self._emit("info", f"Zatrzymano nasłuch na porcie {self.port}")
 
@@ -99,7 +102,8 @@ class RawPrintServer:
             except OSError:
                 break
             t = threading.Thread(target=self._handle_conn, args=(conn, addr), daemon=True)
-            self._conn_threads.append(t)
+            with self._conn_lock:
+                self._conn_threads.append(t)
             t.start()
 
     def _handle_conn(self, conn: socket.socket, addr) -> None:
@@ -115,8 +119,9 @@ class RawPrintServer:
                 conn.close()
             except OSError:
                 pass
-            self._conn_threads = [t for t in self._conn_threads
-                                  if t is not threading.current_thread()]
+            with self._conn_lock:
+                cur = threading.current_thread()
+                self._conn_threads = [t for t in self._conn_threads if t is not cur]
 
     def _handle_raw(self, conn: socket.socket, addr) -> None:
         """Tryb raw: przekaż strumień bajtów 1:1 (zachowuje polecenia ~ i bajty

@@ -147,6 +147,20 @@ def test_truncated_job_warns():
         srv.stop()
 
 
+def test_many_concurrent_connections_clean_stop():
+    # Exercise the _conn_threads bookkeeping under concurrent accepts/finishes.
+    be = FakeBackend()
+    mapping = Mapping(listen_port=0, target_printer="Zebra", mode="raw")
+    srv = RawPrintServer(mapping, Router(be))
+    srv.start()
+    try:
+        for _ in range(20):
+            _send(srv.port, b"^XA^FDx^XZ")
+        assert _wait(lambda: len(be.raw_calls) == 20, timeout=5.0)
+    finally:
+        srv.stop()  # must not raise despite concurrent list mutation
+
+
 def test_server_binds_configured_host():
     be = FakeBackend()
     mapping = Mapping(listen_port=0, listen_host="127.0.0.1",
