@@ -87,13 +87,16 @@ class Config:
     """Cała konfiguracja aplikacji."""
 
     mappings: list[Mapping] = field(default_factory=lambda: [Mapping()])
+    # Uruchamiać aplikację przy starcie systemu (domyślnie włączone).
+    autostart: bool = True
 
     def validate(self) -> None:
         if not self.mappings:
             raise ConfigError("Konfiguracja musi mieć przynajmniej jedno mapowanie.")
-        ports = [m.listen_port for m in self.mappings]
-        if len(ports) != len(set(ports)):
-            raise ConfigError(f"Porty nasłuchu muszą być unikalne: {ports}")
+        # Unikalne pary (adres, port) — dwa nasłuchy nie mogą kolidować.
+        keys = [(m.listen_host, m.listen_port) for m in self.mappings]
+        if len(keys) != len(set(keys)):
+            raise ConfigError(f"Adres:port nasłuchu muszą być unikalne: {keys}")
         for m in self.mappings:
             m.validate()
 
@@ -103,10 +106,14 @@ class Config:
         mappings = [Mapping.from_dict(m) for m in raw]
         if not mappings:
             mappings = [Mapping()]
-        return cls(mappings=mappings)
+        return cls(mappings=mappings, autostart=bool(data.get("autostart", True)))
 
     def to_dict(self) -> dict:
-        return {"version": 1, "mappings": [m.to_dict() for m in self.mappings]}
+        return {
+            "version": 1,
+            "autostart": self.autostart,
+            "mappings": [m.to_dict() for m in self.mappings],
+        }
 
 
 def config_path() -> Path:

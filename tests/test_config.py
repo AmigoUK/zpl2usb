@@ -96,10 +96,34 @@ def test_invalid_label_size():
         Mapping(default_label_mm=(0, 40)).validate()
 
 
-def test_duplicate_ports_rejected():
+def test_duplicate_host_port_rejected():
     cfg = Config(mappings=[Mapping(listen_port=9100), Mapping(listen_port=9100)])
     with pytest.raises(ConfigError):
         cfg.validate()
+
+
+def test_same_port_different_host_allowed():
+    cfg = Config(mappings=[
+        Mapping(listen_host="192.168.1.10", listen_port=9100, target_printer="A"),
+        Mapping(listen_host="10.0.0.5", listen_port=9100, target_printer="B"),
+    ])
+    cfg.validate()  # nie rzuca — różne adresy
+
+
+def test_autostart_default_true():
+    assert Config().autostart is True
+
+
+def test_autostart_roundtrip(tmp_path):
+    p = tmp_path / "config.json"
+    cfg = Config(mappings=[Mapping(target_printer="X")], autostart=False)
+    save(cfg, p)
+    assert load(p).autostart is False
+
+
+def test_autostart_from_dict_default():
+    cfg = Config.from_dict({"mappings": [{"target_printer": "X"}]})
+    assert cfg.autostart is True
 
 
 def test_empty_mappings_from_dict_gets_default():
