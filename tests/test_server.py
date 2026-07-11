@@ -79,6 +79,35 @@ def test_server_error_event_when_no_printer():
         srv.stop()
 
 
+def test_trailing_newline_no_warning():
+    be = FakeBackend()
+    events = []
+    mapping = Mapping(listen_port=0, target_printer="Zebra", mode="raw")
+    srv = RawPrintServer(mapping, Router(be), on_event=events.append)
+    srv.start()
+    try:
+        _send(srv.port, b"^XA^FDx^XZ\n")  # nowa linia po ^XZ jest normalna
+        assert _wait(lambda: len(be.raw_calls) == 1)
+        time.sleep(0.1)  # daj czas na ewentualne ostrzeżenie po zamknięciu
+        assert not any(e.level == "warning" for e in events), \
+            [e.message for e in events if e.level == "warning"]
+    finally:
+        srv.stop()
+
+
+def test_truncated_job_warns():
+    be = FakeBackend()
+    events = []
+    mapping = Mapping(listen_port=0, target_printer="Zebra", mode="raw")
+    srv = RawPrintServer(mapping, Router(be), on_event=events.append)
+    srv.start()
+    try:
+        _send(srv.port, b"^XA^FDunfinished")  # brak ^XZ -> realnie ucięte
+        assert _wait(lambda: any(e.level == "warning" for e in events))
+    finally:
+        srv.stop()
+
+
 def test_app_start_stop_with_fake_backend():
     be = FakeBackend()
     cfg = Config(mappings=[Mapping(listen_port=0, target_printer="Zebra", mode="raw")])

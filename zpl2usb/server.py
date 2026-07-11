@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from typing import Callable
 
 from .config import Mapping
-from .jobs import JobSplitter
+from .jobs import START, JobSplitter
 from .router import RouteResult, Router
 
 
@@ -116,11 +116,13 @@ class RawPrintServer:
                     continue
                 for job in jobs:
                     self._process(job)
-            # Ostrzeż, jeśli zostały niekompletne dane.
-            if splitter.pending:
+            # Ostrzeż tylko, gdy w buforze pozostało realnie rozpoczęte zadanie
+            # (zawiera ^XA). Sam biały znak/nowa linia po ^XZ to nie błąd.
+            pending = splitter.pending
+            if START in pending:
                 self._emit("warning",
                            f"{addr[0]}: rozłączenie z niekompletnym zadaniem "
-                           f"({len(splitter.pending)} B odrzucone)")
+                           f"({len(pending)} B odrzucone)")
         finally:
             try:
                 conn.close()
