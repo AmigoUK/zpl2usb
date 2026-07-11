@@ -29,9 +29,6 @@ def test_list_printers_lpstat_e():
 
 
 def test_list_printers_fallback_lpstat_a():
-    results = {}
-    calls = {"n": 0}
-
     def runner(args, data):
         # -e faila, -a zwraca listę w formacie "name accepting..."
         if args == ["lpstat", "-e"]:

@@ -58,11 +58,14 @@ class SettingsWindow:
         panel.rowconfigure(0, weight=1)
 
         ttk.Button(panel, text="+ Dodaj", command=self.add_mapping).grid(
-            row=1, column=0, pady=(6, 0), sticky="we")
+            row=1, column=0, pady=(6, 0), sticky="we"
+        )
         ttk.Button(panel, text="Duplikuj", command=self.duplicate_mapping).grid(
-            row=1, column=1, pady=(6, 0), sticky="we")
+            row=1, column=1, pady=(6, 0), sticky="we"
+        )
         ttk.Button(panel, text="Usuń", command=self.remove_mapping).grid(
-            row=1, column=2, pady=(6, 0), sticky="we")
+            row=1, column=2, pady=(6, 0), sticky="we"
+        )
 
     def _build_edit_panel(self, outer) -> None:
         frm = ttk.LabelFrame(outer, text="Ustawienia zaznaczonej drukarki", padding=8)
@@ -72,23 +75,26 @@ class SettingsWindow:
 
         ttk.Label(frm, text="Drukarka docelowa:").grid(row=r, column=0, sticky="w")
         self._vars["target_printer"] = tk.StringVar()
-        self.printer_cb = ttk.Combobox(frm, textvariable=self._vars["target_printer"],
-                                       width=28, state="readonly")
+        self.printer_cb = ttk.Combobox(
+            frm, textvariable=self._vars["target_printer"], width=28, state="readonly"
+        )
         self.printer_cb.grid(row=r, column=1, sticky="we", pady=2)
         ttk.Button(frm, text="Odśwież", command=self.refresh_printers).grid(row=r, column=2, padx=4)
 
         r += 1
         ttk.Label(frm, text="Adres nasłuchu (ten komputer):").grid(row=r, column=0, sticky="w")
         self._vars["listen_host"] = tk.StringVar()
-        self.host_cb = ttk.Combobox(frm, textvariable=self._vars["listen_host"],
-                                    width=28, state="readonly")
+        self.host_cb = ttk.Combobox(
+            frm, textvariable=self._vars["listen_host"], width=28, state="readonly"
+        )
         self.host_cb.grid(row=r, column=1, sticky="we", pady=2)
         ttk.Button(frm, text="Odśwież", command=self.refresh_hosts).grid(row=r, column=2, padx=4)
 
         r += 1
         self.hint_var = tk.StringVar(value="")
         ttk.Label(frm, textvariable=self.hint_var, foreground="#227a3a").grid(
-            row=r, column=0, columnspan=3, sticky="w", pady=(0, 4))
+            row=r, column=0, columnspan=3, sticky="w", pady=(0, 4)
+        )
         self._vars["listen_host"].trace_add("write", lambda *_: self._update_hint())
 
         r += 1
@@ -96,22 +102,30 @@ class SettingsWindow:
         self._vars["mode"] = tk.StringVar(value="raw")
         mode_frm = ttk.Frame(frm)
         mode_frm.grid(row=r, column=1, columnspan=2, sticky="w")
-        ttk.Radiobutton(mode_frm, text="Surowy ZPL (raw)", value="raw",
-                        variable=self._vars["mode"]).pack(side="left")
-        ttk.Radiobutton(mode_frm, text="Renderuj", value="render",
-                        variable=self._vars["mode"]).pack(side="left", padx=8)
+        ttk.Radiobutton(
+            mode_frm, text="Surowy ZPL (raw)", value="raw", variable=self._vars["mode"]
+        ).pack(side="left")
+        ttk.Radiobutton(
+            mode_frm, text="Renderuj", value="render", variable=self._vars["mode"]
+        ).pack(side="left", padx=8)
 
         r += 1
         ttk.Label(frm, text="DPI:").grid(row=r, column=0, sticky="w")
         self._vars["dpi"] = tk.StringVar(value="203")
-        ttk.Combobox(frm, textvariable=self._vars["dpi"], width=8, state="readonly",
-                     values=[str(d) for d in DPIS]).grid(row=r, column=1, sticky="w", pady=2)
+        ttk.Combobox(
+            frm,
+            textvariable=self._vars["dpi"],
+            width=8,
+            state="readonly",
+            values=[str(d) for d in DPIS],
+        ).grid(row=r, column=1, sticky="w", pady=2)
 
         r += 1
         ttk.Label(frm, text="Port nasłuchu:").grid(row=r, column=0, sticky="w")
         self._vars["listen_port"] = tk.StringVar(value="9100")
         ttk.Entry(frm, textvariable=self._vars["listen_port"], width=10).grid(
-            row=r, column=1, sticky="w", pady=2)
+            row=r, column=1, sticky="w", pady=2
+        )
         self._vars["listen_port"].trace_add("write", lambda *_: self._update_hint())
 
         r += 1
@@ -126,17 +140,20 @@ class SettingsWindow:
 
         r += 1
         self._vars["enabled"] = tk.BooleanVar(value=True)
-        ttk.Checkbutton(frm, text="Włączona (nasłuchuje)",
-                        variable=self._vars["enabled"]).grid(row=r, column=1, sticky="w", pady=2)
+        ttk.Checkbutton(frm, text="Włączona (nasłuchuje)", variable=self._vars["enabled"]).grid(
+            row=r, column=1, sticky="w", pady=2
+        )
 
     def _build_bottom(self, outer) -> None:
         bar = ttk.Frame(outer)
         bar.grid(row=1, column=0, columnspan=2, sticky="we", pady=(10, 4))
         self.autostart_var = tk.BooleanVar(value=self.app.config.autostart)
-        ttk.Checkbutton(bar, text="Uruchamiaj przy starcie systemu",
-                        variable=self.autostart_var).pack(side="left")
-        ttk.Button(bar, text="Zapisz i uruchom wszystkie",
-                   command=self.save_and_restart).pack(side="left", padx=(12, 0))
+        ttk.Checkbutton(
+            bar, text="Uruchamiaj przy starcie systemu", variable=self.autostart_var
+        ).pack(side="left")
+        ttk.Button(bar, text="Zapisz i uruchom wszystkie", command=self.save_and_restart).pack(
+            side="left", padx=(12, 0)
+        )
         ttk.Button(bar, text="Stop", command=self.stop).pack(side="left", padx=6)
         self.status_var = tk.StringVar(value="—")
         ttk.Label(bar, textvariable=self.status_var).pack(side="left", padx=12)
@@ -224,9 +241,11 @@ class SettingsWindow:
         if self._selected is None:
             return
         if len(self._mappings) == 1:
-            messagebox.showinfo("Nie można usunąć",
-                                "Musi zostać co najmniej jedna wirtualna drukarka.",
-                                parent=self.win)
+            messagebox.showinfo(
+                "Nie można usunąć",
+                "Musi zostać co najmniej jedna wirtualna drukarka.",
+                parent=self.win,
+            )
             return
         idx = self._selected
         del self._mappings[idx]
@@ -267,15 +286,18 @@ class SettingsWindow:
         self._update_hint()
 
     def _update_hint(self) -> None:
-        self.hint_var.set(wms_hint(self._vars["listen_host"].get(),
-                                   self._vars["listen_port"].get()))
+        self.hint_var.set(
+            wms_hint(self._vars["listen_host"].get(), self._vars["listen_port"].get())
+        )
 
     # --- akcje --------------------------------------------------------------
     def save_and_restart(self) -> None:
         if not self._commit_form():
             return
-        cfg = Config(mappings=[copy.deepcopy(m) for m in self._mappings],
-                     autostart=bool(self.autostart_var.get()))
+        cfg = Config(
+            mappings=[copy.deepcopy(m) for m in self._mappings],
+            autostart=bool(self.autostart_var.get()),
+        )
         try:
             cfg.validate()
         except ConfigError as exc:

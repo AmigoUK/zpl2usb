@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Renderuj plik ZPL do PNG (podgląd offline, do testów renderera).
 
-    python tools/render_zpl.py etykieta.zpl -o wynik.png --dpi 203 --size 100x40
+python tools/render_zpl.py etykieta.zpl -o wynik.png --dpi 203 --size 100x40
 """
 
 from __future__ import annotations

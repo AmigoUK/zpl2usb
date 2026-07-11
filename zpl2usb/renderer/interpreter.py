@@ -42,9 +42,9 @@ class _Field:
 
     x: int = 0
     y: int = 0
-    baseline: bool = False          # True dla ^FT (pozycja = linia bazowa)
+    baseline: bool = False  # True dla ^FT (pozycja = linia bazowa)
     data: str = ""
-    kind: str = "text"              # text | box | code128 | qr | graphic
+    kind: str = "text"  # text | box | code128 | qr | graphic
     reverse: bool = False
     # font
     font_h: int = DEFAULT_FONT_HEIGHT
@@ -57,7 +57,7 @@ class _Field:
     # barcode
     bc_module: int = 2
     bc_height: int = 100
-    bc_line: bool = True            # linia interpretacji (tekst pod kodem)
+    bc_line: bool = True  # linia interpretacji (tekst pod kodem)
     qr_mag: int = 3
     # graphic (^GF)
     gf_data: str = ""
@@ -95,8 +95,9 @@ class Interpreter:
 
     # --- pomocnicze ---------------------------------------------------------
     def _new_field(self) -> _Field:
-        return _Field(font_h=self.cf_h, font_w=self.cf_w,
-                      bc_module=self.by_module, bc_height=self.by_height)
+        return _Field(
+            font_h=self.cf_h, font_w=self.cf_w, bc_module=self.by_module, bc_height=self.by_height
+        )
 
     def _ensure_field(self) -> _Field:
         if self.field is None:
@@ -218,10 +219,9 @@ class Interpreter:
     def _cmd_GF(self, params: str) -> None:
         f = self._ensure_field()
         f.kind = "graphic"
-        # ^GFa,b,c,d,data
-        idx = 0
+        # ^GFa,b,c,d,data — a=kompresja, b=liczba bajtów, d=bajty/wiersz, data=hex.
         comp = "A"
-        b = c = d = 0
+        b = d = 0
         parts = params.split(",", 4)
         if len(parts) >= 1 and parts[0].strip():
             comp = parts[0].strip().upper()[0]

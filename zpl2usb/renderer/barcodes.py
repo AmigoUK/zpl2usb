@@ -63,7 +63,7 @@ def parse_qr_field(field_data: str) -> tuple[str, int]:
     m = _QR_PREFIX.match(field_data)
     if m:
         level = m.group(1) or "M"
-        payload = field_data[m.end():]
+        payload = field_data[m.end() :]
         return payload, _ERR_MAP.get(level, qrcode.constants.ERROR_CORRECT_M)
     return field_data, qrcode.constants.ERROR_CORRECT_M
 

@@ -23,11 +23,18 @@ def test_default_config_valid():
 
 
 def test_roundtrip_dict():
-    cfg = Config(mappings=[
-        Mapping(listen_port=9100, target_printer="Zebra", mode="raw", dpi=203),
-        Mapping(listen_port=9101, target_printer="Toshiba", mode="render", dpi=300,
-                default_label_mm=(60.0, 30.0)),
-    ])
+    cfg = Config(
+        mappings=[
+            Mapping(listen_port=9100, target_printer="Zebra", mode="raw", dpi=203),
+            Mapping(
+                listen_port=9101,
+                target_printer="Toshiba",
+                mode="render",
+                dpi=300,
+                default_label_mm=(60.0, 30.0),
+            ),
+        ]
+    )
     cfg.validate()
     restored = Config.from_dict(cfg.to_dict())
     assert restored == cfg
@@ -103,34 +110,41 @@ def test_duplicate_host_port_rejected():
 
 
 def test_same_port_different_host_allowed():
-    cfg = Config(mappings=[
-        Mapping(listen_host="192.168.1.10", listen_port=9100, target_printer="A"),
-        Mapping(listen_host="10.0.0.5", listen_port=9100, target_printer="B"),
-    ])
+    cfg = Config(
+        mappings=[
+            Mapping(listen_host="192.168.1.10", listen_port=9100, target_printer="A"),
+            Mapping(listen_host="10.0.0.5", listen_port=9100, target_printer="B"),
+        ]
+    )
     cfg.validate()  # nie rzuca — różne adresy
 
 
 def test_wildcard_conflicts_with_specific_ip_same_port():
-    cfg = Config(mappings=[
-        Mapping(listen_host="0.0.0.0", listen_port=9100, target_printer="A"),
-        Mapping(listen_host="192.168.1.10", listen_port=9100, target_printer="B"),
-    ])
+    cfg = Config(
+        mappings=[
+            Mapping(listen_host="0.0.0.0", listen_port=9100, target_printer="A"),
+            Mapping(listen_host="192.168.1.10", listen_port=9100, target_printer="B"),
+        ]
+    )
     with pytest.raises(ConfigError, match="0.0.0.0"):
         cfg.validate()
 
 
 def test_load_malformed_port_raises_config_error(tmp_path):
     p = tmp_path / "config.json"
-    p.write_text(json.dumps({"mappings": [{"listen_port": "abc", "target_printer": "X"}]}),
-                 encoding="utf-8")
+    p.write_text(
+        json.dumps({"mappings": [{"listen_port": "abc", "target_printer": "X"}]}), encoding="utf-8"
+    )
     with pytest.raises(ConfigError):
         load(p)
 
 
 def test_load_scalar_label_raises_config_error(tmp_path):
     p = tmp_path / "config.json"
-    p.write_text(json.dumps({"mappings": [{"default_label_mm": 100, "target_printer": "X"}]}),
-                 encoding="utf-8")
+    p.write_text(
+        json.dumps({"mappings": [{"default_label_mm": 100, "target_printer": "X"}]}),
+        encoding="utf-8",
+    )
     with pytest.raises(ConfigError):
         load(p)
 

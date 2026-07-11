@@ -20,8 +20,8 @@ PREFIXES = (b"^", b"~")
 class Command:
     """Pojedyncze polecenie ZPL."""
 
-    name: str        # mnemonik bez prefiksu, wielkimi literami, np. "FO", "FD", "A"
-    params: str      # surowe parametry (dla ^A zawiera oznaczenie fontu)
+    name: str  # mnemonik bez prefiksu, wielkimi literami, np. "FO", "FD", "A"
+    params: str  # surowe parametry (dla ^A zawiera oznaczenie fontu)
     prefix: str = "^"  # "^" lub "~"
 
 

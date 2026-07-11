@@ -121,16 +121,16 @@ class WindowsAutostart(AutostartBackend):  # pragma: no cover - tylko Windows
     def enable(self) -> None:
         import winreg
 
-        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, self._KEY, 0,
-                            winreg.KEY_SET_VALUE) as key:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, self._KEY, 0, winreg.KEY_SET_VALUE) as key:
             winreg.SetValueEx(key, APP_ID, 0, winreg.REG_SZ, self._value())
 
     def disable(self) -> None:
         import winreg
 
         try:
-            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, self._KEY, 0,
-                                winreg.KEY_SET_VALUE) as key:
+            with winreg.OpenKey(
+                winreg.HKEY_CURRENT_USER, self._KEY, 0, winreg.KEY_SET_VALUE
+            ) as key:
                 winreg.DeleteValue(key, APP_ID)
         except FileNotFoundError:
             pass
@@ -146,8 +146,9 @@ class WindowsAutostart(AutostartBackend):  # pragma: no cover - tylko Windows
             return False
 
 
-def get_autostart(platform: str | None = None, base_dir: Path | None = None,
-                  command: list[str] | None = None) -> AutostartBackend:
+def get_autostart(
+    platform: str | None = None, base_dir: Path | None = None, command: list[str] | None = None
+) -> AutostartBackend:
     """Zwróć backend autostartu właściwy dla systemu."""
     plat = platform or sys.platform
     if plat.startswith("win"):

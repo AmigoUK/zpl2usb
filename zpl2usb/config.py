@@ -63,7 +63,7 @@ class Mapping:
             raise ConfigError(f"Rozmiar etykiety musi być dodatni: {self.default_label_mm}")
 
     @classmethod
-    def from_dict(cls, data: dict) -> "Mapping":
+    def from_dict(cls, data: dict) -> Mapping:
         label = data.get("default_label_mm", DEFAULT_LABEL_MM)
         return cls(
             listen_port=int(data.get("listen_port", DEFAULT_PORT)),
@@ -111,7 +111,7 @@ class Config:
             m.validate()
 
     @classmethod
-    def from_dict(cls, data: dict) -> "Config":
+    def from_dict(cls, data: dict) -> Config:
         raw = data.get("mappings") or []
         mappings = [Mapping.from_dict(m) for m in raw]
         if not mappings:

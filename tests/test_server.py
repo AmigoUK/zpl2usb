@@ -3,12 +3,11 @@ import time
 
 import pytest
 
+from tests.test_router import FakeBackend
+from zpl2usb.app import App
 from zpl2usb.config import Config, Mapping
 from zpl2usb.router import Router
 from zpl2usb.server import RawPrintServer
-from zpl2usb.app import App
-
-from tests.test_router import FakeBackend
 
 
 def _wait(cond, timeout=3.0):
@@ -127,8 +126,9 @@ def test_trailing_newline_no_warning():
         _send(srv.port, b"^XA^FDx^XZ\n")  # nowa linia po ^XZ jest normalna
         assert _wait(lambda: len(be.image_calls) == 1)
         time.sleep(0.1)  # daj czas na ewentualne ostrzeżenie po zamknięciu
-        assert not any(e.level == "warning" for e in events), \
-            [e.message for e in events if e.level == "warning"]
+        assert not any(e.level == "warning" for e in events), [
+            e.message for e in events if e.level == "warning"
+        ]
     finally:
         srv.stop()
 
@@ -163,8 +163,7 @@ def test_many_concurrent_connections_clean_stop():
 
 def test_server_binds_configured_host():
     be = FakeBackend()
-    mapping = Mapping(listen_port=0, listen_host="127.0.0.1",
-                      target_printer="Zebra", mode="raw")
+    mapping = Mapping(listen_port=0, listen_host="127.0.0.1", target_printer="Zebra", mode="raw")
     srv = RawPrintServer(mapping, Router(be))  # bez host= -> bierze z mapowania
     srv.start()
     try:
@@ -178,8 +177,7 @@ def test_server_binds_configured_host():
 def test_server_unavailable_host_raises_clear_error():
     be = FakeBackend()
     # Adres, którego z pewnością nie ma na tym komputerze.
-    mapping = Mapping(listen_port=0, listen_host="203.0.113.7",
-                      target_printer="Zebra", mode="raw")
+    mapping = Mapping(listen_port=0, listen_host="203.0.113.7", target_printer="Zebra", mode="raw")
     srv = RawPrintServer(mapping, Router(be))
     with pytest.raises(OSError, match="niedostępny"):
         srv.start()
@@ -203,10 +201,12 @@ def test_app_port_conflict_reports_error():
     be = FakeBackend()
     # dwa mapowania na tym samym stałym porcie -> drugie nie wstanie
     port = _free_port()
-    cfg = Config(mappings=[
-        Mapping(listen_port=port, target_printer="A", mode="raw"),
-        Mapping(listen_port=port, target_printer="B", mode="raw", enabled=True),
-    ])
+    cfg = Config(
+        mappings=[
+            Mapping(listen_port=port, target_printer="A", mode="raw"),
+            Mapping(listen_port=port, target_printer="B", mode="raw", enabled=True),
+        ]
+    )
     # walidacja Config odrzuca duplikaty portów, więc omijamy ją i testujemy start
     app = App(cfg=Config(mappings=[cfg.mappings[0]]), backend=be)
     app.config.mappings.append(cfg.mappings[1])

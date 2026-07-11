@@ -2,9 +2,9 @@
 
 import pytest
 
+from tests.test_router import FakeBackend
 from zpl2usb.app import App
 from zpl2usb.config import Config, Mapping
-from tests.test_router import FakeBackend
 
 tk = pytest.importorskip("tkinter")
 
@@ -13,6 +13,7 @@ tk = pytest.importorskip("tkinter")
 def _no_modal_dialogs(monkeypatch):
     """Zamień modalne okienka na no-op, żeby testy się nie blokowały."""
     import zpl2usb.gui.window as win
+
     for name in ("showinfo", "showerror", "showwarning"):
         monkeypatch.setattr(win.messagebox, name, lambda *a, **k: None)
 
@@ -29,13 +30,18 @@ def root():
 
 
 def _make_app():
-    cfg = Config(mappings=[Mapping(listen_host="0.0.0.0", listen_port=9100,
-                 target_printer="Zebra", mode="raw")], autostart=True)
+    cfg = Config(
+        mappings=[
+            Mapping(listen_host="0.0.0.0", listen_port=9100, target_printer="Zebra", mode="raw")
+        ],
+        autostart=True,
+    )
     return App(cfg=cfg, backend=FakeBackend())
 
 
 def test_window_lists_initial_mapping(root):
     from zpl2usb.gui.window import SettingsWindow
+
     app = _make_app()
     w = SettingsWindow(app, root)
     assert w.listbox.size() == 1
@@ -44,6 +50,7 @@ def test_window_lists_initial_mapping(root):
 
 def test_window_add_remove_mapping(root):
     from zpl2usb.gui.window import SettingsWindow
+
     app = _make_app()
     w = SettingsWindow(app, root)
     w.add_mapping()
@@ -54,6 +61,7 @@ def test_window_add_remove_mapping(root):
 
 def test_window_cannot_remove_last(root):
     from zpl2usb.gui.window import SettingsWindow
+
     app = _make_app()
     w = SettingsWindow(app, root)
     w.remove_mapping()  # tylko jedno — nie usuwa
@@ -62,6 +70,7 @@ def test_window_cannot_remove_last(root):
 
 def test_window_save_builds_config(root, monkeypatch):
     from zpl2usb.gui.window import SettingsWindow
+
     app = _make_app()
     captured = {}
 

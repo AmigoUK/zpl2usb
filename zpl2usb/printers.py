@@ -18,8 +18,9 @@ import subprocess
 import sys
 import tempfile
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable, Protocol
+from typing import Protocol
 
 
 class PrintError(RuntimeError):
@@ -41,16 +42,13 @@ def _default_runner(args: list[str], data: bytes | None) -> subprocess.Completed
 
 class PrinterBackend(ABC):
     @abstractmethod
-    def list_printers(self) -> list[str]:
-        ...
+    def list_printers(self) -> list[str]: ...
 
     @abstractmethod
-    def print_raw(self, name: str, data: bytes) -> None:
-        ...
+    def print_raw(self, name: str, data: bytes) -> None: ...
 
     @abstractmethod
-    def print_image(self, name: str, image, *, dpi: int = 203) -> None:
-        ...
+    def print_image(self, name: str, image, *, dpi: int = 203) -> None: ...
 
 
 # --- CUPS (Linux / macOS) ---------------------------------------------------
@@ -85,9 +83,7 @@ class CupsBackend(PrinterBackend):
             image.save(path, format="PNG", dpi=(dpi, dpi))
             res = self._run(["lp", "-d", name, str(path)], None)
             if res.returncode != 0:
-                raise PrintError(
-                    f"lp image nie powiódł się dla {name!r}: {_text(res.stderr)}"
-                )
+                raise PrintError(f"lp image nie powiódł się dla {name!r}: {_text(res.stderr)}")
         finally:
             path.unlink(missing_ok=True)
 
@@ -124,7 +120,6 @@ class WindowsBackend(PrinterBackend):
             win32print.ClosePrinter(handle)
 
     def print_image(self, name: str, image, *, dpi: int = 203) -> None:  # pragma: no cover
-        import win32con
         import win32ui
         from PIL import ImageWin
 

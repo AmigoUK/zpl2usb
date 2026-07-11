@@ -9,7 +9,7 @@ from __future__ import annotations
 import sys
 import threading
 from collections import deque
-from typing import Callable
+from collections.abc import Callable
 
 from . import autostart as autostart_mod
 from . import config as config_mod

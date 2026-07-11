@@ -16,8 +16,13 @@ def make_icon(size: int = 64, running: bool = True) -> Image.Image:
 
     m = size // 8
     # korpus etykiety
-    d.rounded_rectangle([m, m, size - m, size - m], radius=size // 10,
-                        fill=(255, 255, 255, 255), outline=accent, width=max(2, size // 20))
+    d.rounded_rectangle(
+        [m, m, size - m, size - m],
+        radius=size // 10,
+        fill=(255, 255, 255, 255),
+        outline=accent,
+        width=max(2, size // 20),
+    )
     # paski "kodu kreskowego"
     bar_top = size // 3
     bar_bottom = size - size // 3

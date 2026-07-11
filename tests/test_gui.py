@@ -15,8 +15,13 @@ from zpl2usb.gui.icon import make_icon
 
 # --- formstate --------------------------------------------------------------
 def test_form_roundtrip():
-    m = Mapping(listen_port=9100, target_printer="Toshiba B-EX", mode="render",
-                dpi=300, default_label_mm=(60.0, 30.0))
+    m = Mapping(
+        listen_port=9100,
+        target_printer="Toshiba B-EX",
+        mode="render",
+        dpi=300,
+        default_label_mm=(60.0, 30.0),
+    )
     form = mapping_to_form(m)
     assert form["listen_port"] == "9100"
     assert form["dpi"] == "300"
@@ -54,14 +59,14 @@ def test_wms_hint_empty_host():
 
 
 def test_mapping_label():
-    m = Mapping(listen_host="192.168.1.50", listen_port=9100,
-                target_printer="Zebra", mode="raw")
+    m = Mapping(listen_host="192.168.1.50", listen_port=9100, target_printer="Zebra", mode="raw")
     assert mapping_label(m) == "192.168.1.50:9100 → Zebra (raw)"
 
 
 def test_mapping_label_no_printer_and_disabled():
-    m = Mapping(listen_host="0.0.0.0", listen_port=9101, target_printer="",
-                mode="render", enabled=False)
+    m = Mapping(
+        listen_host="0.0.0.0", listen_port=9101, target_printer="", mode="render", enabled=False
+    )
     label = mapping_label(m)
     assert "(brak drukarki)" in label
     assert "[wył.]" in label

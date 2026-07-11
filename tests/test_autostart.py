@@ -34,8 +34,7 @@ def test_linux_disable_removes_file(tmp_path):
 
 
 def test_linux_command_with_spaces_is_quoted(tmp_path):
-    a = LinuxAutostart(base_dir=tmp_path,
-                       command=["/usr/bin/python", "-m", "zpl2usb"])
+    a = LinuxAutostart(base_dir=tmp_path, command=["/usr/bin/python", "-m", "zpl2usb"])
     a.enable()
     assert "Exec=/usr/bin/python -m zpl2usb" in a.file.read_text()
 

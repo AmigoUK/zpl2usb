@@ -61,11 +61,21 @@ def cmd_screenshot(argv: list[str]) -> int:
 
     cfg = Config(
         mappings=[
-            Mapping(listen_host="0.0.0.0", listen_port=9100,
-                    target_printer="Zebra ZD420", mode="raw", dpi=203),
-            Mapping(listen_host="0.0.0.0", listen_port=9101,
-                    target_printer="Toshiba B-EX4T1", mode="render", dpi=300,
-                    default_label_mm=(100.0, 40.0)),
+            Mapping(
+                listen_host="0.0.0.0",
+                listen_port=9100,
+                target_printer="Zebra ZD420",
+                mode="raw",
+                dpi=203,
+            ),
+            Mapping(
+                listen_host="0.0.0.0",
+                listen_port=9101,
+                target_printer="Toshiba B-EX4T1",
+                mode="render",
+                dpi=300,
+                default_label_mm=(100.0, 40.0),
+            ),
         ],
         autostart=True,
     )
@@ -94,9 +104,14 @@ def cmd_screenshot(argv: list[str]) -> int:
 def cmd_netcheck(argv: list[str]) -> int:
     out = Path(argv[0]) if argv else ROOT / "netcheck_out.png"
     backend = DemoBackend(out=out)
-    mapping = Mapping(listen_host="127.0.0.1", listen_port=0,
-                      target_printer="Toshiba B-EX4T1", mode="render",
-                      dpi=203, default_label_mm=(100.0, 40.0))
+    mapping = Mapping(
+        listen_host="127.0.0.1",
+        listen_port=0,
+        target_printer="Toshiba B-EX4T1",
+        mode="render",
+        dpi=203,
+        default_label_mm=(100.0, 40.0),
+    )
     events: list = []
     srv = RawPrintServer(mapping, Router(backend), on_event=events.append)
     srv.start()

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Callable
+from collections.abc import Callable
 
 from .icon import make_icon
 
@@ -25,8 +25,7 @@ class Tray:
 
         menu = pystray.Menu(
             pystray.MenuItem("Ustawienia…", self._open, default=True),
-            pystray.MenuItem("Uruchom", self._start,
-                             checked=lambda item: self.app.is_running()),
+            pystray.MenuItem("Uruchom", self._start, checked=lambda item: self.app.is_running()),
             pystray.MenuItem("Zatrzymaj", self._stop),
             pystray.Menu.SEPARATOR,
             pystray.MenuItem("Zakończ", self._quit),

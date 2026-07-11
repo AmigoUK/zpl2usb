@@ -1,9 +1,8 @@
 from PIL import Image
 
-from zpl2usb.renderer import render
+from zpl2usb.renderer import barcodes, render
 from zpl2usb.renderer.parser import tokenize
-from zpl2usb.renderer.units import mm_to_dots, label_size_dots
-from zpl2usb.renderer import barcodes
+from zpl2usb.renderer.units import label_size_dots, mm_to_dots
 
 
 # --- units ------------------------------------------------------------------
@@ -36,9 +35,11 @@ def test_tokenize_font_command_single_letter():
 
 def test_tokenize_letter_named_fonts():
     # ^A with letter fonts (Zebra A-H) must still be the single-letter font command.
-    for zpl, params in [(b"^ADN,18,10", "DN,18,10"),
-                        (b"^AEN,28,28", "EN,28,28"),
-                        (b"^A@N,20,20", "@N,20,20")]:
+    for zpl, params in [
+        (b"^ADN,18,10", "DN,18,10"),
+        (b"^AEN,28,28", "EN,28,28"),
+        (b"^A@N,20,20", "@N,20,20"),
+    ]:
         cmds = tokenize(zpl + b"^FDx^FS")
         assert cmds[0].name == "A", zpl
         assert cmds[0].params == params, zpl

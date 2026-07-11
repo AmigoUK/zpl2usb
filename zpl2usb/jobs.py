@@ -50,9 +50,7 @@ class JobSplitter:
 
         if len(self._buf) > self._max_buffer:
             # Zabezpieczenie przed nieograniczonym buforem przy zepsutym strumieniu.
-            raise BufferError(
-                f"Bufor zadania przekroczył {self._max_buffer} B bez znacznika ^XZ"
-            )
+            raise BufferError(f"Bufor zadania przekroczył {self._max_buffer} B bez znacznika ^XZ")
         return jobs
 
     def _trim_leading_noise(self) -> None:

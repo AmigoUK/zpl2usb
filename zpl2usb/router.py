@@ -27,15 +27,15 @@ class Router:
     def handle_job(self, mapping: Mapping, job: bytes) -> RouteResult:
         printer = mapping.target_printer
         if not printer:
-            return RouteResult(False, mapping.mode, printer,
-                               error="Nie wybrano drukarki docelowej.")
+            return RouteResult(
+                False, mapping.mode, printer, error="Nie wybrano drukarki docelowej."
+            )
         try:
             if mapping.mode == "raw":
                 self.backend.print_raw(printer, job)
                 return RouteResult(True, "raw", printer)
 
-            result = render(job, dpi=mapping.dpi,
-                            default_label_mm=mapping.default_label_mm)
+            result = render(job, dpi=mapping.dpi, default_label_mm=mapping.default_label_mm)
             self.backend.print_image(printer, result.image, dpi=mapping.dpi)
             warns = list(result.warnings)
             if result.unsupported:
@@ -44,5 +44,6 @@ class Router:
         except PrintError as exc:
             return RouteResult(False, mapping.mode, printer, error=str(exc))
         except Exception as exc:  # renderer/inne — nie wywalamy serwera
-            return RouteResult(False, mapping.mode, printer,
-                               error=f"Błąd przetwarzania zadania: {exc}")
+            return RouteResult(
+                False, mapping.mode, printer, error=f"Błąd przetwarzania zadania: {exc}"
+            )

@@ -10,17 +10,17 @@ from __future__ import annotations
 import errno
 import socket
 import threading
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable
 
 from .config import Mapping
 from .jobs import START, JobSplitter
-from .router import RouteResult, Router
+from .router import Router, RouteResult
 
 
 @dataclass
 class ServerEvent:
-    level: str          # "info" | "warning" | "error"
+    level: str  # "info" | "warning" | "error"
     message: str
     mapping_port: int
 
@@ -74,8 +74,11 @@ class RawPrintServer:
         self._stop.clear()
         self._thread = threading.Thread(target=self._accept_loop, daemon=True)
         self._thread.start()
-        self._emit("info", f"Nasłuch na {self.host}:{self.port} "
-                           f"(tryb {self.mapping.mode}, drukarka '{self.mapping.target_printer}')")
+        self._emit(
+            "info",
+            f"Nasłuch na {self.host}:{self.port} "
+            f"(tryb {self.mapping.mode}, drukarka '{self.mapping.target_printer}')",
+        )
 
     def stop(self) -> None:
         self._stop.set()
@@ -97,7 +100,7 @@ class RawPrintServer:
         while not self._stop.is_set():
             try:
                 conn, addr = self._sock.accept()
-            except socket.timeout:
+            except TimeoutError:
                 continue
             except OSError:
                 break
@@ -132,7 +135,7 @@ class RawPrintServer:
         while not self._stop.is_set():
             try:
                 chunk = conn.recv(65536)
-            except socket.timeout:
+            except TimeoutError:
                 if buf:  # bezczynność — wypchnij zebrane bajty
                     self._process(bytes(buf))
                     buf.clear()
@@ -151,7 +154,7 @@ class RawPrintServer:
         while not self._stop.is_set():
             try:
                 chunk = conn.recv(65536)
-            except socket.timeout:
+            except TimeoutError:
                 continue
             except OSError:
                 break
@@ -169,9 +172,10 @@ class RawPrintServer:
         # (zawiera ^XA). Sam biały znak/nowa linia po ^XZ to nie błąd.
         pending = splitter.pending
         if START in pending:
-            self._emit("warning",
-                       f"{addr[0]}: rozłączenie z niekompletnym zadaniem "
-                       f"({len(pending)} B odrzucone)")
+            self._emit(
+                "warning",
+                f"{addr[0]}: rozłączenie z niekompletnym zadaniem ({len(pending)} B odrzucone)",
+            )
 
     def _process(self, job: bytes) -> None:
         result: RouteResult = self.router.handle_job(self.mapping, job)
@@ -184,5 +188,6 @@ class RawPrintServer:
             self._emit("error", f"Błąd druku na '{result.printer}': {result.error}")
 
     def _emit(self, level: str, message: str) -> None:
-        self.on_event(ServerEvent(level=level, message=message,
-                                  mapping_port=self.mapping.listen_port))
+        self.on_event(
+            ServerEvent(level=level, message=message, mapping_port=self.mapping.listen_port)
+        )

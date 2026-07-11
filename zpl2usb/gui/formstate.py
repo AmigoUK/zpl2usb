@@ -62,8 +62,10 @@ def mapping_label(m: Mapping) -> str:
 def wms_hint(host: str, port: str) -> str:
     """Podpowiedź dla użytkownika: jak skonfigurować druk w systemie WMS."""
     if host == "0.0.0.0":
-        return (f"W systemie WMS ustaw druk na adres IP tego komputera : {port} "
-                "(nasłuch na wszystkich interfejsach)")
+        return (
+            f"W systemie WMS ustaw druk na adres IP tego komputera : {port} "
+            "(nasłuch na wszystkich interfejsach)"
+        )
     if host:
         return f"W systemie WMS ustaw druk na:  {host}:{port}"
     return ""
@@ -78,11 +80,11 @@ def _to_int(value, label: str) -> int:
     try:
         return int(str(value).strip())
     except (TypeError, ValueError):
-        raise ValueError(f"{label}: podaj liczbę całkowitą (otrzymano {value!r})")
+        raise ValueError(f"{label}: podaj liczbę całkowitą (otrzymano {value!r})") from None
 
 
 def _to_float(value, label: str) -> float:
     try:
         return float(str(value).strip().replace(",", "."))
     except (TypeError, ValueError):
-        raise ValueError(f"{label}: podaj liczbę (otrzymano {value!r})")
+        raise ValueError(f"{label}: podaj liczbę (otrzymano {value!r})") from None
