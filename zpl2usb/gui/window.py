@@ -10,7 +10,7 @@ import copy
 import tkinter as tk
 from tkinter import messagebox, ttk
 
-from ..config import DPIS, Config, Mapping
+from ..config import DPIS, Config, ConfigError, Mapping
 from ..server import ServerEvent
 from .formstate import form_to_mapping, mapping_label, mapping_to_form, wms_hint
 
@@ -256,8 +256,9 @@ class SettingsWindow:
         current = self._vars["listen_host"].get()
         try:
             hosts = list_local_ipv4()
-        except Exception:
+        except Exception as exc:
             hosts = ["0.0.0.0"]
+            self._append_log("warning", f"Nie można wykryć adresów IP: {exc}")
         if current and current not in hosts:
             hosts = [current, *hosts]
         self.host_cb["values"] = hosts
@@ -277,7 +278,7 @@ class SettingsWindow:
                      autostart=bool(self.autostart_var.get()))
         try:
             cfg.validate()
-        except Exception as exc:
+        except ConfigError as exc:
             messagebox.showerror("Błąd konfiguracji", str(exc), parent=self.win)
             return
         errors = self.app.apply_config(cfg)

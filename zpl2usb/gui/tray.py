@@ -60,8 +60,5 @@ class Tray:
         """Uruchom ikonę w osobnym wątku (Tk trzyma główny wątek)."""
         self.icon.run_detached()
 
-    def run(self) -> None:
-        self.icon.run()
-
     def stop(self) -> None:
         self.icon.stop()

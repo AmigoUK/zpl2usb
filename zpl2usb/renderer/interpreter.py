@@ -21,6 +21,7 @@ from PIL import Image, ImageDraw
 from . import barcodes
 from .fonts import get_font
 from .parser import Command, tokenize
+from .units import mm_to_dots
 
 WHITE = 255
 BLACK = 0
@@ -133,14 +134,14 @@ class Interpreter:
         pass  # zestaw znaków — pomijamy (traktujemy dane jako tekst)
 
     def _cmd_CF(self, params: str) -> None:
-        # ^CF f,h,w — domyślny font
+        # ^CF f,h,w — domyślny font. Wysokość ustawia też szerokość, chyba że
+        # podano osobną szerokość (3. pole).
         parts = params.split(",")
         if len(parts) >= 2 and parts[1].strip().isdigit():
             self.cf_h = int(parts[1])
+            self.cf_w = self.cf_h
         if len(parts) >= 3 and parts[2].strip().isdigit():
             self.cf_w = int(parts[2])
-        elif len(parts) >= 2 and parts[1].strip().isdigit():
-            self.cf_w = self.cf_h
 
     def _cmd_FO(self, params: str) -> None:
         self._set_position(params, baseline=False)
@@ -279,9 +280,7 @@ class Interpreter:
         w, h, t = f.box_w, f.box_h, f.box_t
         if w <= 0 or h <= 0:
             return
-        if w <= t:  # pionowa linia
-            self.draw.rectangle([x, y, x + w, y + h], fill=color)
-        elif h <= t:  # pozioma linia
+        if w <= t or h <= t:  # linia (pionowa lub pozioma) — wypełniony prostokąt
             self.draw.rectangle([x, y, x + w, y + h], fill=color)
         else:
             self.draw.rectangle([x, y, x + w, y + h], outline=color, width=t)
@@ -330,8 +329,6 @@ class Interpreter:
 
 def _resolve_label_size(commands, dpi, default_label_mm):
     """Ustal rozmiar płótna: ^PW/^LL jeśli obecne, inaczej domyślny z mm."""
-    from .units import mm_to_dots
-
     width = height = None
     for c in commands:
         if c.name == "PW":

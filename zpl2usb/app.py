@@ -45,8 +45,10 @@ class App:
         for h in list(self._log_handlers):
             try:
                 h(event)
-            except Exception:
-                pass
+            except Exception as exc:
+                # Jeden zepsuty handler (np. GUI) nie może zatrzymać pętli, ale
+                # nie chowamy błędu bez śladu — zgłoś na stderr do diagnozy.
+                print(f"zpl2usb: log handler failed: {exc!r}", file=sys.stderr)
 
     @property
     def log(self) -> list[ServerEvent]:
@@ -91,9 +93,6 @@ class App:
         config_mod.save(cfg)
         self.config = cfg
         return self.start()
-
-    def reload_backend(self) -> None:
-        self.router.backend = self.backend
 
     # --- autostart ----------------------------------------------------------
     def set_autostart(self, enabled: bool) -> None:
