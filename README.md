@@ -13,9 +13,18 @@ przyjmuje strumień ZPL i kieruje go na wybraną drukarkę systemową:
 
 Aplikacja ma ikonę w zasobniku systemowym i proste okno ustawień.
 
-## Status
+![Przykład wyrenderowanej etykiety](examples/sample_100x40.png)
 
-W budowie. Zobacz spec: [`docs/superpowers/specs/2026-07-11-zpl2usb-design.md`](docs/superpowers/specs/2026-07-11-zpl2usb-design.md).
+## Jak to działa
+
+```
+System (WMS/ERP)  --ZPL po TCP-->  :9100 nasłuch  -->  podział na zadania (^XA…^XZ)
+                                                             |
+                                                        router (tryb?)
+                                              raw /                    \ render
+                                     druk surowy              renderer ZPL->bitmapa (DPI)
+                                              \___ drukarka systemowa __/
+```
 
 ## Uruchomienie ze źródeł
 
@@ -26,8 +35,56 @@ pip install -e ".[dev]"
 python -m zpl2usb              # start aplikacji (tray + nasłuch)
 ```
 
-Na Windows dodatkowo: `pip install pywin32`.
-Na Linux wymagany jest CUPS (`lp`/`lpr`) oraz `python3-tk` dla GUI.
+- **Windows**: dodatkowo `pip install pywin32`.
+- **Linux**: wymagany CUPS (`lp`/`lpr`) oraz `python3-tk` dla GUI.
+- **macOS**: CUPS jest wbudowany; `tkinter` dostarcza instalator Pythona z python.org.
+
+## Budowa samodzielnej binarki
+
+Na **docelowym** systemie (PyInstaller nie robi cross-kompilacji):
+
+```bash
+pip install -r requirements.txt pyinstaller
+python packaging/build.py
+# wynik: dist/zpl2usb  (Windows: dist/zpl2usb.exe)
+```
+
+## Konfiguracja
+
+Zapisywana jako JSON w katalogu konfiguracji użytkownika (przez `platformdirs`,
+per system). Pola mapowania:
+
+| Pole | Znaczenie | Domyślnie |
+|---|---|---|
+| `listen_port` | port nasłuchu RAW | `9100` |
+| `target_printer` | nazwa drukarki systemowej | — |
+| `mode` | `raw` lub `render` | `raw` |
+| `dpi` | 203 / 300 / 600 | `203` |
+| `default_label_mm` | rozmiar etykiety, gdy brak `^PW`/`^LL` | `100 × 40` |
+
+Model konfiguracji to lista mapowań — dziś UI obsługuje jedno, architektura jest
+gotowa na wiele wirtualnych drukarek (różne porty → różne drukarki).
+
+## Obsługiwany podzbiór ZPL (tryb render)
+
+Renderer jest lokalny/offline i obsługuje najczęstsze polecenia:
+
+- struktura: `^XA` `^XZ` `^FS`
+- ustawienia: `^PW` `^LL` `^LH` `^CF` `^CI`
+- pozycja: `^FO` `^FT`
+- tekst: `^A` (font skalowalny), `^FD`
+- grafika: `^GB` (ramki/linie), `^GF` (bitmapa ASCII-hex), `^FR`
+- kody: `^BY`, `^BC` (Code128), `^BQ` (QR)
+
+Nieobsługiwane polecenia są **pomijane** i trafiają do logu — reszta etykiety
+renderuje się dalej. Dla drukarek natywnie ZPL używaj trybu **raw** (pełna
+wierność, bez ograniczeń renderera).
+
+## Podgląd renderu (bez drukarki)
+
+```bash
+python tools/render_zpl.py examples/sample_100x40.zpl -o podglad.png --dpi 203 --size 100x40
+```
 
 ## Testy
 
@@ -36,8 +93,6 @@ pip install pytest
 pytest
 ```
 
-## Konfiguracja
+## Licencja
 
-Zapisywana jako JSON w katalogu konfiguracji użytkownika (wg systemu, przez
-`platformdirs`). Domyślne mapowanie: port `9100`, tryb `raw`, DPI `203`,
-rozmiar etykiety `100 × 40 mm`.
+MIT. Zobacz też spec: [`docs/superpowers/specs/2026-07-11-zpl2usb-design.md`](docs/superpowers/specs/2026-07-11-zpl2usb-design.md).
