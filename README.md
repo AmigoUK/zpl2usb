@@ -12,7 +12,9 @@ you select in the system, in one of two modes:
 - **render** — local (offline) rendering of the ZPL to a bitmap, printed through the
   system driver (for printers that do not understand ZPL, e.g. Toshiba B-EX).
 
-The application lives in the system tray and has a simple settings window.
+The application lives in the system tray and has a simple settings window. It can
+manage **several virtual printers at once** (each on its own address/port → its own
+system printer) and can **start automatically with the system**.
 
 ![Example of a rendered label](examples/sample_100x40.png)
 
@@ -59,6 +61,15 @@ python packaging/build.py
 Stored as JSON in the per-user configuration directory (via `platformdirs`).
 Fields of a mapping:
 
+Top-level:
+
+| Field | Meaning | Default |
+|---|---|---|
+| `autostart` | start the app when the system starts | `true` |
+| `mappings` | list of virtual printers (see below) | one default mapping |
+
+Each mapping:
+
 | Field | Meaning | Default |
 |---|---|---|
 | `listen_host` | which of this computer's IPv4 addresses to listen on | `0.0.0.0` (all) |
@@ -67,10 +78,23 @@ Fields of a mapping:
 | `mode` | `raw` or `render` | `raw` |
 | `dpi` | 203 / 300 / 600 | `203` |
 | `default_label_mm` | label size when the ZPL omits `^PW`/`^LL` | `100 × 40` |
+| `enabled` | whether this mapping listens | `true` |
 
-The configuration model is a list of mappings — the current UI manages one, but the
-architecture is ready for several virtual printers (different addresses/ports →
-different printers).
+## Multiple virtual printers
+
+The settings window shows a list of virtual printers on the left and an edit panel on
+the right. Use **Add**, **Duplicate** and **Remove** to manage them. Each one binds to
+its own `address:port` and forwards to its own system printer, so you can, for example,
+route one label stream to a Zebra (raw) and another to a Toshiba B-EX (render) on the
+same machine. Every `(address, port)` pair must be unique.
+
+## Autostart
+
+"Start with the system" is **enabled by default**; untick it in the settings window to
+turn it off. It is registered per platform: an XDG `.desktop` file on Linux, a
+LaunchAgent on macOS, and a `Run` registry entry on Windows. Automatic registration
+only happens for the packaged binary; running from source never modifies the system
+unless you toggle the option yourself.
 
 ## Supported ZPL subset (render mode)
 

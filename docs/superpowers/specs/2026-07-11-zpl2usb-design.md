@@ -25,8 +25,9 @@ distributed as a standalone binary (users do not install Python).
 | Target printer | Any — the mode is chosen by the user (raw ZPL **or** render) |
 | Printing method | Only via **system-installed printers** (driver/queue) |
 | ZPL rendering | **Local/offline only** (no online services such as Labelary) |
-| Number of virtual printers | Start with **one**; architecture designed for many (list of mappings) |
+| Number of virtual printers | **Many** — the UI manages a list of mappings (add/duplicate/remove) |
 | Listening address | User selects one of **this computer's own IP addresses** (not a hardcoded wildcard) |
+| Autostart | **Enabled by default**; user can opt out (per-platform registration) |
 | Interface | **System-tray icon** (pystray) + settings/log window (Tkinter) |
 | Distribution | **Standalone binary** per OS (PyInstaller) |
 | DPI | Configured **per printer** (203/300/600), default 203 |
@@ -65,6 +66,8 @@ prints to 192.168.1.50:9100  ──▶   listens on 192.168.1.50:9100   ──�
   `print_image(name, image)`. Windows → `win32print`; macOS/Linux → CUPS (`lp`/`lpr`).
 - **`netutil.py`** — detects the computer's local IPv4 addresses for the listening-
   address selector (psutil, with a socket-based fallback).
+- **`autostart.py`** — registers/unregisters start-with-system per platform (XDG
+  `.desktop`, macOS LaunchAgent, Windows `Run` registry key); base paths injectable.
 - **`renderer/`** — ZPL interpreter → PIL image:
   - `parser` — command tokenisation
   - `interpreter` — `^FO/^FT`, `^A` (text), `^GB` (boxes/lines), `^GF` (graphics)
@@ -78,6 +81,7 @@ Configuration model (one mapping today, a list ready for many):
 
 ```json
 {
+  "autostart": true,
   "mappings": [
     {
       "listen_host": "192.168.1.50",
@@ -85,11 +89,14 @@ Configuration model (one mapping today, a list ready for many):
       "target_printer": "Toshiba B-EX",
       "mode": "render",            // "raw" | "render"
       "dpi": 203,                  // 203 | 300 | 600
-      "default_label_mm": [100, 40]
+      "default_label_mm": [100, 40],
+      "enabled": true
     }
   ]
 }
 ```
+
+Every `(listen_host, listen_port)` pair must be unique across mappings.
 
 ## 5. Technology stack
 
@@ -132,6 +139,22 @@ the WMS is configured to print to that exact address (e.g. `192.168.1.50:9100`).
 - If the saved address is no longer available (e.g. a DHCP change), the server start
   fails with a clear message asking the user to refresh and reselect.
 
+### Multiple virtual printers
+
+The settings window manages a list of mappings: a list box on the left (add/duplicate/
+remove) and an edit panel on the right for the selected mapping. Each mapping binds to
+its own `(listen_host, listen_port)` and forwards to its own system printer, so one
+machine can, for example, serve a Zebra (raw) and a Toshiba B-EX (render) at once. A
+per-mapping `enabled` flag lets a printer be kept but not listened on. Edits are held in
+a working copy and persisted on "Save and run all", which restarts all servers.
+
+### Autostart
+
+Start-with-system is stored as the top-level `autostart` flag, enabled by default. On
+startup a packaged binary reconciles the OS registration with the flag (`sync_autostart`,
+gated to frozen builds so running from source never touches the system). Toggling the
+checkbox applies the change immediately via `autostart.py`.
+
 ## 8. Error handling
 
 The application never crashes; everything goes to the log and the window:
@@ -149,17 +172,18 @@ The application never crashes; everything goes to the log and the window:
 
 - **Unit:** `jobs` (stream splitting, concatenated/fragmented TCP packets),
   `config` (save/load, validation), `printers` (backend mocked per OS),
-  `netutil` (address filtering/ordering, mocked).
+  `netutil` (address filtering/ordering, mocked), `autostart` (per-platform file
+  contents, enable/disable, mocked base dirs).
 - **Renderer:** "golden image" tests for sample labels (text, box, Code128, QR) —
   comparing dimensions and image content.
 - **Integration:** sending sample ZPL to a real local socket → verifying the router
   reaches the mocked backend in both modes; binding to a specific `listen_host`.
-- **GUI:** pure form/hint logic tested directly; the Tkinter window smoke-tested under
-  a virtual display.
+- **GUI:** pure form/hint/label logic tested directly; the Tkinter window (list of
+  mappings, add/remove, save) tested under a virtual display, skipped when headless.
 - **Manual:** a real Toshiba B-EX (render) + a real Zebra (raw).
 
 ## 10. Out of scope (YAGNI for now)
 
 - ZPL → TPCL / other printer-language conversion (solved by rendering to a bitmap).
-- Managing multiple virtual printers in the UI (the architecture is ready; UI later).
 - Advanced label preview in the GUI, queueing with retries, authentication.
+- Remote management / configuration over the network.

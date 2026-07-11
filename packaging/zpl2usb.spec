@@ -12,7 +12,7 @@ binaries = []
 hiddenimports = []
 
 # python-barcode dostarcza plik fontu jako dane pakietu — trzeba go dołączyć.
-for pkg in ("barcode", "pystray", "PIL", "qrcode"):
+for pkg in ("barcode", "pystray", "PIL", "qrcode", "psutil"):
     d, b, h = collect_all(pkg)
     datas += d
     binaries += b
