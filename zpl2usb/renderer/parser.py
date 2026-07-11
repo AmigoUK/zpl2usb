@@ -52,10 +52,12 @@ def tokenize(zpl: bytes | str) -> list[Command]:
         i += 1
         if i >= n:
             break
-        # Mnemonik: specjalny przypadek ^A (font) — jednoliterowy, gdy kolejny znak
-        # nie jest wielką literą (jest cyfrą, '@', ',' itd.).
+        # Mnemonik: ^A (font) jest jednoliterowy — bezpośrednio po nim występuje
+        # oznaczenie fontu (0-9 lub A-Z, np. ^A0N,.., ^ADN,.., ^A@N,..). Nie ma
+        # dwuliterowych poleceń ^A?, więc ^A zawsze traktujemy jako font.
+        # Dotyczy tylko prefiksu ^ — polecenia ~ są zawsze dwuliterowe (~SD, ~JA…).
         first = text[i]
-        if first == "A" and (i + 1 >= n or not text[i + 1].isalpha()):
+        if prefix == "^" and first == "A":
             name = "A"
             i += 1
         else:

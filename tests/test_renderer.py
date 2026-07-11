@@ -34,6 +34,30 @@ def test_tokenize_font_command_single_letter():
     assert cmds[0].params == "0N,30,30"
 
 
+def test_tokenize_letter_named_fonts():
+    # ^A with letter fonts (Zebra A-H) must still be the single-letter font command.
+    for zpl, params in [(b"^ADN,18,10", "DN,18,10"),
+                        (b"^AEN,28,28", "EN,28,28"),
+                        (b"^A@N,20,20", "@N,20,20")]:
+        cmds = tokenize(zpl + b"^FDx^FS")
+        assert cmds[0].name == "A", zpl
+        assert cmds[0].params == params, zpl
+
+
+def test_tilde_a_not_treated_as_font():
+    # ~ prefix commands are always two-letter; ^A special-case must not apply.
+    cmds = tokenize(b"~AB123")
+    assert cmds[0].name == "AB"
+    assert cmds[0].prefix == "~"
+
+
+def test_letter_font_sets_size():
+    # ^ADN,40,40 should render at the requested height (not fall back to default).
+    r = render(b"^XA^FO10,10^ADN,45,45^FDHI^FS^XZ", dpi=203)
+    assert "AD" not in r.unsupported  # no longer mis-parsed as command AD
+    assert r.image.getextrema()[0] == 0  # text drawn
+
+
 def test_tokenize_fd_keeps_spaces_and_commas():
     cmds = tokenize(b"^FDHello, World 123^FS")
     assert cmds[0].name == "FD"
