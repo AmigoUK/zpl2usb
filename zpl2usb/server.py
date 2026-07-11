@@ -7,6 +7,7 @@ do ``Router``. Zdarzenia (druk/ostrzeżenia/błędy) trafiają do callbacku ``on
 
 from __future__ import annotations
 
+import errno
 import socket
 import threading
 from dataclasses import dataclass
@@ -35,12 +36,13 @@ class RawPrintServer:
         mapping: Mapping,
         router: Router,
         on_event: EventHandler | None = None,
-        host: str = "0.0.0.0",
+        host: str | None = None,
     ) -> None:
         self.mapping = mapping
         self.router = router
         self.on_event = on_event or (lambda e: None)
-        self.host = host
+        # Domyślnie bind na adres z mapowania; parametr host pozwala nadpisać (testy).
+        self.host = host if host is not None else mapping.listen_host
         self._sock: socket.socket | None = None
         self._thread: threading.Thread | None = None
         self._stop = threading.Event()
@@ -55,8 +57,13 @@ class RawPrintServer:
             sock.bind((self.host, self.mapping.listen_port))
         except OSError as exc:
             sock.close()
+            if exc.errno == errno.EADDRNOTAVAIL:
+                raise OSError(
+                    f"Adres {self.host} niedostępny na tym komputerze "
+                    f"(np. zmiana sieci/DHCP) — odśwież listę i wybierz ponownie."
+                ) from exc
             raise OSError(
-                f"Nie można nasłuchiwać na porcie {self.mapping.listen_port}: {exc}"
+                f"Nie można nasłuchiwać na {self.host}:{self.mapping.listen_port}: {exc}"
             ) from exc
         sock.listen(8)
         sock.settimeout(0.5)

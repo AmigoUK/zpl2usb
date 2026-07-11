@@ -1,6 +1,8 @@
 import socket
 import time
 
+import pytest
+
 from zpl2usb.config import Config, Mapping
 from zpl2usb.router import Router
 from zpl2usb.server import RawPrintServer
@@ -108,6 +110,30 @@ def test_truncated_job_warns():
         srv.stop()
 
 
+def test_server_binds_configured_host():
+    be = FakeBackend()
+    mapping = Mapping(listen_port=0, listen_host="127.0.0.1",
+                      target_printer="Zebra", mode="raw")
+    srv = RawPrintServer(mapping, Router(be))  # bez host= -> bierze z mapowania
+    srv.start()
+    try:
+        assert srv.host == "127.0.0.1"
+        _send(srv.port, b"^XA^FDx^XZ")
+        assert _wait(lambda: len(be.raw_calls) == 1)
+    finally:
+        srv.stop()
+
+
+def test_server_unavailable_host_raises_clear_error():
+    be = FakeBackend()
+    # Adres, którego z pewnością nie ma na tym komputerze.
+    mapping = Mapping(listen_port=0, listen_host="203.0.113.7",
+                      target_printer="Zebra", mode="raw")
+    srv = RawPrintServer(mapping, Router(be))
+    with pytest.raises(OSError, match="niedostępny"):
+        srv.start()
+
+
 def test_app_start_stop_with_fake_backend():
     be = FakeBackend()
     cfg = Config(mappings=[Mapping(listen_port=0, target_printer="Zebra", mode="raw")])
@@ -135,7 +161,8 @@ def test_app_port_conflict_reports_error():
     app.config.mappings.append(cfg.mappings[1])
     errors = app.start()
     try:
-        assert any("porcie" in e or "port" in e.lower() for e in errors)
+        assert errors  # drugie mapowanie na tym samym porcie nie wstało
+        assert any("nasłuchiwać" in e.lower() or "use" in e.lower() for e in errors)
     finally:
         app.stop()
 
