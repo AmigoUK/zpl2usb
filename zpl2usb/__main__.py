@@ -26,7 +26,15 @@ def main() -> int:
         print("Zainstaluj pakiet systemowy python3-tk.", file=sys.stderr)
         return 2
 
-    root = tk.Tk()
+    try:
+        root = tk.Tk()
+    except tk.TclError as exc:  # pragma: no cover - brak środowiska graficznego
+        print(f"Nie można uruchomić GUI (brak środowiska graficznego): {exc}",
+              file=sys.stderr)
+        print("Uruchom aplikację na komputerze z pulpitem (Windows/macOS/Linux X11).",
+              file=sys.stderr)
+        app.stop()
+        return 3
     root.withdraw()  # główne okno ukryte — pracujemy z Toplevel + tray
 
     from .gui.window import SettingsWindow

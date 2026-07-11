@@ -21,7 +21,7 @@ for pkg in ("barcode", "pystray", "PIL", "qrcode"):
 block_cipher = None
 
 a = Analysis(
-    ["../zpl2usb/__main__.py"],
+    ["../main.py"],
     pathex=["."],
     binaries=binaries,
     datas=datas,
