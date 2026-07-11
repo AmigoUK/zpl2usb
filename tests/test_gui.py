@@ -4,7 +4,7 @@ import pytest
 from PIL import Image
 
 from zpl2usb.config import Mapping
-from zpl2usb.gui.formstate import form_to_mapping, mapping_to_form
+from zpl2usb.gui.formstate import form_to_mapping, mapping_to_form, wms_hint
 from zpl2usb.gui.icon import make_icon
 
 
@@ -18,6 +18,34 @@ def test_form_roundtrip():
     assert form["label_w"] == "60"
     back = form_to_mapping(form)
     assert back == m
+
+
+def test_form_includes_listen_host():
+    m = Mapping(listen_host="192.168.1.50")
+    form = mapping_to_form(m)
+    assert form["listen_host"] == "192.168.1.50"
+    assert form_to_mapping(form).listen_host == "192.168.1.50"
+
+
+def test_form_invalid_host_rejected():
+    form = mapping_to_form(Mapping())
+    form["listen_host"] = "999.1.1.1"
+    with pytest.raises(ValueError):
+        form_to_mapping(form)
+
+
+def test_wms_hint_specific_ip():
+    assert wms_hint("192.168.1.50", "9100") == "W systemie WMS ustaw druk na:  192.168.1.50:9100"
+
+
+def test_wms_hint_all_interfaces():
+    hint = wms_hint("0.0.0.0", "9100")
+    assert "adres IP tego komputera" in hint
+    assert "9100" in hint
+
+
+def test_wms_hint_empty_host():
+    assert wms_hint("", "9100") == ""
 
 
 def test_form_default_label_formatting():

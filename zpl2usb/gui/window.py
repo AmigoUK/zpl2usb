@@ -12,7 +12,7 @@ from tkinter import messagebox, ttk
 
 from ..config import DPIS, Config, Mapping
 from ..server import ServerEvent
-from .formstate import form_to_mapping, mapping_to_form
+from .formstate import form_to_mapping, mapping_to_form, wms_hint
 
 
 class SettingsWindow:
@@ -45,6 +45,22 @@ class SettingsWindow:
             row=row, column=2, padx=4)
 
         row += 1
+        ttk.Label(frm, text="Adres nasłuchu (ten komputer):").grid(row=row, column=0, sticky="w")
+        self._vars["listen_host"] = tk.StringVar()
+        self.host_cb = ttk.Combobox(frm, textvariable=self._vars["listen_host"],
+                                    width=32, state="readonly")
+        self.host_cb.grid(row=row, column=1, sticky="we", pady=3)
+        ttk.Button(frm, text="Odśwież", command=self.refresh_hosts).grid(
+            row=row, column=2, padx=4)
+
+        row += 1
+        self.hint_var = tk.StringVar(value="")
+        hint = ttk.Label(frm, textvariable=self.hint_var, foreground="#227a3a")
+        hint.grid(row=row, column=0, columnspan=3, sticky="w", pady=(0, 4))
+        # aktualizuj podpowiedź przy zmianie adresu/portu
+        self._vars["listen_host"].trace_add("write", lambda *_: self._update_hint())
+
+        row += 1
         ttk.Label(frm, text="Tryb:").grid(row=row, column=0, sticky="w")
         self._vars["mode"] = tk.StringVar(value="raw")
         mode_frm = ttk.Frame(frm)
@@ -65,6 +81,7 @@ class SettingsWindow:
         self._vars["listen_port"] = tk.StringVar(value="9100")
         ttk.Entry(frm, textvariable=self._vars["listen_port"], width=10).grid(
             row=row, column=1, sticky="w", pady=3)
+        self._vars["listen_port"].trace_add("write", lambda *_: self._update_hint())
 
         row += 1
         ttk.Label(frm, text="Domyślna etykieta (mm):").grid(row=row, column=0, sticky="w")
@@ -102,6 +119,28 @@ class SettingsWindow:
             if key in self._vars:
                 self._vars[key].set(val)
         self.refresh_printers()
+        self.refresh_hosts()
+        self._update_hint()
+
+    def refresh_hosts(self) -> None:
+        from ..netutil import list_local_ipv4
+
+        current = self._vars["listen_host"].get()
+        try:
+            hosts = list_local_ipv4()
+        except Exception:
+            hosts = ["0.0.0.0"]
+        # zachowaj zapisany adres, nawet jeśli chwilowo nie został wykryty
+        if current and current not in hosts:
+            hosts = [current, *hosts]
+        self.host_cb["values"] = hosts
+        if not current and hosts:
+            self._vars["listen_host"].set(hosts[0])
+        self._update_hint()
+
+    def _update_hint(self) -> None:
+        self.hint_var.set(wms_hint(self._vars["listen_host"].get(),
+                                   self._vars["listen_port"].get()))
 
     def refresh_printers(self) -> None:
         try:
@@ -161,6 +200,7 @@ class SettingsWindow:
         self.win.deiconify()
         self.win.lift()
         self.refresh_printers()
+        self.refresh_hosts()
         self._refresh_status()
 
     def hide(self) -> None:

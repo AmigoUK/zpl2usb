@@ -12,6 +12,7 @@ def mapping_to_form(m: Mapping) -> dict:
     """Model -> wartości pól formularza (stringi, wygodne dla widgetów)."""
     return {
         "listen_port": str(m.listen_port),
+        "listen_host": m.listen_host,
         "target_printer": m.target_printer,
         "mode": m.mode,
         "dpi": str(m.dpi),
@@ -40,6 +41,7 @@ def form_to_mapping(form: dict) -> Mapping:
 
     m = Mapping(
         listen_port=port,
+        listen_host=(form.get("listen_host") or "").strip(),
         target_printer=(form.get("target_printer") or "").strip(),
         mode=mode,
         dpi=dpi,
@@ -48,6 +50,16 @@ def form_to_mapping(form: dict) -> Mapping:
     )
     m.validate()  # dodatkowa walidacja zakresów
     return m
+
+
+def wms_hint(host: str, port: str) -> str:
+    """Podpowiedź dla użytkownika: jak skonfigurować druk w systemie WMS."""
+    if host == "0.0.0.0":
+        return (f"W systemie WMS ustaw druk na adres IP tego komputera : {port} "
+                "(nasłuch na wszystkich interfejsach)")
+    if host:
+        return f"W systemie WMS ustaw druk na:  {host}:{port}"
+    return ""
 
 
 def _fmt(value: float) -> str:
